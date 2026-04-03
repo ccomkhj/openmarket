@@ -1,10 +1,12 @@
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import engine, Base
 from app.api.products import router as products_router
+from app.api.collections import router as collections_router
+from app.ws.manager import manager
 
 
 @asynccontextmanager
@@ -23,8 +25,19 @@ app.add_middleware(
 )
 
 app.include_router(products_router)
+app.include_router(collections_router)
 
 
 @app.get("/api/health")
 async def health():
     return {"status": "ok"}
+
+
+@app.websocket("/api/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await manager.connect(websocket)
+    try:
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)
