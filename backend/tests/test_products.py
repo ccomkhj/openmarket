@@ -104,3 +104,38 @@ async def test_delete_variant(client):
     vid = create.json()["variants"][0]["id"]
     response = await client.delete(f"/api/variants/{vid}")
     assert response.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_lookup_variant_by_barcode(client):
+    await client.post("/api/products", json={
+        "title": "Milk", "handle": "milk",
+        "variants": [{"title": "1L", "barcode": "8801234000001", "price": "2.99"}],
+    })
+    response = await client.get("/api/variants/lookup?barcode=8801234000001")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["barcode"] == "8801234000001"
+    assert data["price"] == "2.99"
+    assert "product_title" in data
+
+
+@pytest.mark.asyncio
+async def test_lookup_variant_by_barcode_not_found(client):
+    response = await client.get("/api/variants/lookup?barcode=NONEXISTENT")
+    assert response.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_list_products_includes_min_price(client):
+    await client.post("/api/products", json={
+        "title": "Milk", "handle": "milk",
+        "variants": [
+            {"title": "1L", "price": "2.99"},
+            {"title": "2L", "price": "4.99"},
+        ],
+    })
+    response = await client.get("/api/products")
+    assert response.status_code == 200
+    data = response.json()
+    assert data[0]["min_price"] == "2.99"

@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from sqlalchemy import select, func as sqlfunc
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -9,6 +9,7 @@ from app.models.inventory import InventoryItem
 from app.schemas.product import (
     ProductCreate, ProductUpdate, ProductOut, ProductListOut,
     VariantCreate, VariantUpdate, VariantOut,
+    ProductListWithPriceOut, VariantLookupOut,
 )
 
 router = APIRouter(prefix="/api", tags=["products"])
@@ -34,19 +35,60 @@ async def create_product(body: ProductCreate, db: AsyncSession = Depends(get_db)
     return product
 
 
-@router.get("/products", response_model=list[ProductListOut])
+@router.get("/products", response_model=list[ProductListWithPriceOut])
 async def list_products(
     status: str | None = None,
     search: str | None = None,
+    product_type: str | None = None,
     db: AsyncSession = Depends(get_db),
 ):
-    query = select(Product)
+    query = (
+        select(
+            Product.id, Product.title, Product.handle, Product.product_type,
+            Product.status, Product.tags,
+            sqlfunc.min(ProductVariant.price).label("min_price"),
+        )
+        .outerjoin(ProductVariant, ProductVariant.product_id == Product.id)
+        .group_by(Product.id)
+    )
     if status:
         query = query.where(Product.status == status)
     if search:
         query = query.where(Product.title.ilike(f"%{search}%"))
+    if product_type:
+        query = query.where(Product.product_type == product_type)
     result = await db.execute(query.order_by(Product.id))
-    return result.scalars().all()
+    rows = result.all()
+    return [
+        ProductListWithPriceOut(
+            id=r.id, title=r.title, handle=r.handle,
+            product_type=r.product_type, status=r.status,
+            tags=r.tags, min_price=r.min_price,
+        )
+        for r in rows
+    ]
+
+
+@router.get("/variants/lookup", response_model=VariantLookupOut)
+async def lookup_variant_by_barcode(barcode: str, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(
+        select(ProductVariant)
+        .where(ProductVariant.barcode == barcode)
+        .options(selectinload(ProductVariant.product))
+    )
+    variant = result.scalar_one_or_none()
+    if not variant:
+        raise HTTPException(status_code=404, detail="Variant not found")
+    return VariantLookupOut(
+        id=variant.id,
+        product_id=variant.product_id,
+        product_title=variant.product.title,
+        title=variant.title,
+        sku=variant.sku,
+        barcode=variant.barcode,
+        price=variant.price,
+        compare_at_price=variant.compare_at_price,
+    )
 
 
 @router.get("/products/{product_id}", response_model=ProductOut)

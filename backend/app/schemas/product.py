@@ -84,3 +84,28 @@ class ProductListOut(BaseModel):
     tags: list[str]
 
     model_config = {"from_attributes": True}
+
+
+class ProductListWithPriceOut(BaseModel):
+    id: int
+    title: str
+    handle: str
+    product_type: str
+    status: str
+    tags: list[str]
+    min_price: Decimal | None = None
+
+    model_config = {"from_attributes": True}
+
+
+class VariantLookupOut(BaseModel):
+    id: int
+    product_id: int
+    product_title: str
+    title: str
+    sku: str
+    barcode: str
+    price: Decimal
+    compare_at_price: Decimal | None
+
+    model_config = {"from_attributes": True}
