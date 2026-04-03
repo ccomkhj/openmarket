@@ -1,0 +1,10 @@
+{
+  "name": "openmarket-frontend",
+  "private": true,
+  "scripts": {
+    "dev:store": "pnpm --filter @openmarket/store dev",
+    "dev:admin": "pnpm --filter @openmarket/admin dev",
+    "dev:pos": "pnpm --filter @openmarket/pos dev",
+    "build": "pnpm -r build"
+  }
+}
