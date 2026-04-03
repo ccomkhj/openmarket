@@ -41,6 +41,19 @@ async def list_orders(
     return result.scalars().all()
 
 
+@router.get("/orders/lookup", response_model=OrderOut)
+async def lookup_order(order_number: str, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(
+        select(Order)
+        .where(Order.order_number == order_number)
+        .options(selectinload(Order.line_items))
+    )
+    order = result.scalar_one_or_none()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    return order
+
+
 @router.get("/orders/{order_id}", response_model=OrderOut)
 async def get_order(order_id: int, db: AsyncSession = Depends(get_db)):
     result = await db.execute(

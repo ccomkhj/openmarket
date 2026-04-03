@@ -97,3 +97,23 @@ async def test_get_order(client, db):
     response = await client.get(f"/api/orders/{oid}")
     assert response.status_code == 200
     assert len(response.json()["line_items"]) == 1
+
+
+@pytest.mark.asyncio
+async def test_lookup_order_by_number(client, db):
+    ids = await seed_for_order(db)
+    create = await client.post("/api/orders", json={
+        "source": "pos",
+        "line_items": [{"variant_id": ids["variant_id"], "quantity": 1}],
+    })
+    order_number = create.json()["order_number"]
+    response = await client.get(f"/api/orders/lookup?order_number={order_number}")
+    assert response.status_code == 200
+    assert response.json()["order_number"] == order_number
+    assert len(response.json()["line_items"]) == 1
+
+
+@pytest.mark.asyncio
+async def test_lookup_order_not_found(client):
+    response = await client.get("/api/orders/lookup?order_number=NOPE")
+    assert response.status_code == 404
