@@ -1,0 +1,41 @@
+services:
+  db:
+    image: postgres:16-alpine
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: openmarket
+      POSTGRES_USER: openmarket
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-openmarket}
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U openmarket"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build: ./backend
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+asyncpg://openmarket:${DB_PASSWORD:-openmarket}@db:5432/openmarket
+    ports:
+      - "8000:8000"
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./frontend/packages/store/dist:/usr/share/nginx/html/store:ro
+      - ./frontend/packages/admin/dist:/usr/share/nginx/html/admin:ro
+      - ./frontend/packages/pos/dist:/usr/share/nginx/html/pos:ro
+    depends_on:
+      - api
+
+volumes:
+  pgdata:
