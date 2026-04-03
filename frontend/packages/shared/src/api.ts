@@ -14,9 +14,11 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 
 export const api = {
   products: {
-    list: (params?: { status?: string; search?: string }) => {
-      const qs = new URLSearchParams(params as Record<string, string>).toString();
-      return request<import("./types").ProductListItem[]>(`/products${qs ? `?${qs}` : ""}`);
+    list: (params?: { status?: string; search?: string; product_type?: string }) => {
+      const qs = new URLSearchParams(
+        Object.fromEntries(Object.entries(params ?? {}).filter(([, v]) => v != null)) as Record<string, string>
+      ).toString();
+      return request<import("./types").ProductListWithPrice[]>(`/products${qs ? `?${qs}` : ""}`);
     },
     get: (id: number) => request<import("./types").Product>(`/products/${id}`),
     create: (data: Record<string, unknown>) =>
@@ -26,10 +28,14 @@ export const api = {
     archive: (id: number) =>
       request<import("./types").Product>(`/products/${id}`, { method: "DELETE" }),
   },
+  variants: {
+    lookup: (barcode: string) =>
+      request<import("./types").VariantLookup>(`/variants/lookup?barcode=${encodeURIComponent(barcode)}`),
+  },
   collections: {
     list: () => request<import("./types").Collection[]>("/collections"),
     products: (id: number) =>
-      request<import("./types").ProductListItem[]>(`/collections/${id}/products`),
+      request<import("./types").ProductListWithPrice[]>(`/collections/${id}/products`),
   },
   inventory: {
     levels: (locationId: number) =>
@@ -41,10 +47,14 @@ export const api = {
   },
   orders: {
     list: (params?: { source?: string; fulfillment_status?: string }) => {
-      const qs = new URLSearchParams(params as Record<string, string>).toString();
+      const qs = new URLSearchParams(
+        Object.fromEntries(Object.entries(params ?? {}).filter(([, v]) => v != null)) as Record<string, string>
+      ).toString();
       return request<import("./types").OrderListItem[]>(`/orders${qs ? `?${qs}` : ""}`);
     },
     get: (id: number) => request<import("./types").Order>(`/orders/${id}`),
+    lookup: (orderNumber: string) =>
+      request<import("./types").Order>(`/orders/lookup?order_number=${encodeURIComponent(orderNumber)}`),
     create: (data: Record<string, unknown>) =>
       request<import("./types").Order>("/orders", { method: "POST", body: JSON.stringify(data) }),
   },

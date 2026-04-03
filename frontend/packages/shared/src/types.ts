@@ -119,3 +119,24 @@ export interface CartItem {
   product: Product;
   quantity: number;
 }
+
+export interface ProductListWithPrice {
+  id: number;
+  title: string;
+  handle: string;
+  product_type: string;
+  status: string;
+  tags: string[];
+  min_price: string | null;
+}
+
+export interface VariantLookup {
+  id: number;
+  product_id: number;
+  product_title: string;
+  title: string;
+  sku: string;
+  barcode: string;
+  price: string;
+  compare_at_price: string | null;
+}
