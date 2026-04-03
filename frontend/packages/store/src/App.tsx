@@ -2,21 +2,45 @@ import { Routes, Route, Link } from "react-router-dom";
 import { ShopPage } from "./pages/ShopPage";
 import { CartCheckoutPage } from "./pages/CartCheckoutPage";
 import { OrderStatusPage } from "./pages/OrderStatusPage";
-import { CartProvider } from "./store/cartStore";
+import { CartProvider, useCart } from "./store/cartStore";
+import { baseStyles, colors } from "@openmarket/shared";
+
+function NavBar() {
+  const { items } = useCart();
+  const count = items.reduce((s, i) => s + i.quantity, 0);
+  return (
+    <nav style={baseStyles.nav}>
+      <Link to="/" style={baseStyles.navBrand}>OpenMarket</Link>
+      <div style={{ flex: 1 }} />
+      <Link to="/" style={baseStyles.navLink}>Shop</Link>
+      <Link to="/cart" style={{ ...baseStyles.navLink, position: "relative" as const }}>
+        Cart
+        {count > 0 && (
+          <span style={{
+            position: "absolute", top: -8, right: -14,
+            background: colors.brand, color: "#fff",
+            borderRadius: "50%", width: 18, height: 18,
+            fontSize: 11, fontWeight: 700,
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}>{count}</span>
+        )}
+      </Link>
+      <Link to="/order-status" style={baseStyles.navLink}>Track Order</Link>
+    </nav>
+  );
+}
 
 export function App() {
   return (
     <CartProvider>
-      <nav style={{ padding: "1rem", borderBottom: "1px solid #eee", display: "flex", gap: "1rem", alignItems: "center" }}>
-        <Link to="/" style={{ fontWeight: "bold", fontSize: "1.2rem", textDecoration: "none" }}>OpenMarket</Link>
-        <Link to="/cart">Cart</Link>
-        <Link to="/order-status">Track Order</Link>
-      </nav>
-      <Routes>
-        <Route path="/" element={<ShopPage />} />
-        <Route path="/cart" element={<CartCheckoutPage />} />
-        <Route path="/order-status" element={<OrderStatusPage />} />
-      </Routes>
+      <div style={baseStyles.page}>
+        <NavBar />
+        <Routes>
+          <Route path="/" element={<ShopPage />} />
+          <Route path="/cart" element={<CartCheckoutPage />} />
+          <Route path="/order-status" element={<OrderStatusPage />} />
+        </Routes>
+      </div>
     </CartProvider>
   );
 }

@@ -1,40 +1,60 @@
 import { useState } from "react";
-import { api } from "@openmarket/shared";
+import { api, Button, Spinner, colors, baseStyles, spacing, radius } from "@openmarket/shared";
 import type { Order } from "@openmarket/shared";
 
 export function OrderStatusPage() {
   const [orderNumber, setOrderNumber] = useState("");
   const [order, setOrder] = useState<Order | null>(null);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   const lookup = async () => {
-    setError("");
+    if (!orderNumber.trim()) return;
+    setLoading(true); setError(""); setOrder(null);
     try {
-      const orders = await api.orders.list();
-      const found = orders.find((o) => o.order_number === orderNumber);
-      if (!found) { setError("Order not found"); return; }
-      const full = await api.orders.get(found.id);
-      setOrder(full);
-    } catch { setError("Could not look up order"); }
+      const found = await api.orders.lookup(orderNumber.trim());
+      setOrder(found);
+    } catch { setError("Order not found. Please check the order number and try again."); }
+    finally { setLoading(false); }
   };
 
   return (
-    <div style={{ padding: "1rem", maxWidth: 600, margin: "0 auto" }}>
-      <h2>Track Your Order</h2>
-      <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem" }}>
-        <input placeholder="Enter order number (e.g. ORD-...)" value={orderNumber}
-          onChange={(e) => setOrderNumber(e.target.value)} style={{ flex: 1, padding: "0.5rem" }} />
-        <button onClick={lookup}>Look Up</button>
+    <div style={{ ...baseStyles.container, maxWidth: 600 }}>
+      <h2 style={{ marginBottom: spacing.lg }}>Track Your Order</h2>
+      <div style={{ ...baseStyles.card, marginBottom: spacing.lg }}>
+        <div style={{ display: "flex", gap: "8px" }}>
+          <input placeholder="Enter order number (e.g. ORD-...)" value={orderNumber}
+            onChange={(e) => setOrderNumber(e.target.value)} onKeyDown={(e) => e.key === "Enter" && lookup()}
+            style={baseStyles.input} />
+          <Button variant="primary" onClick={lookup} loading={loading} style={{ flexShrink: 0 }}>Look Up</Button>
+        </div>
+        {error && <div style={{ background: colors.dangerSurface, color: colors.danger, padding: "8px 12px", borderRadius: radius.sm, fontSize: "14px", marginTop: "10px" }}>{error}</div>}
       </div>
-      {error && <p style={{ color: "red" }}>{error}</p>}
+
+      {loading && <Spinner label="Looking up order..." />}
+
       {order && (
-        <div style={{ border: "1px solid #ddd", padding: "1rem", borderRadius: "4px" }}>
-          <h3>Order {order.order_number}</h3>
-          <p><strong>Status:</strong> {order.fulfillment_status}</p>
-          <p><strong>Total:</strong> ${order.total_price}</p>
-          <p><strong>Placed:</strong> {new Date(order.created_at).toLocaleString()}</p>
-          <h4>Items:</h4>
-          <ul>{order.line_items.map((li) => (<li key={li.id}>{li.title} x{li.quantity} - ${li.price}</li>))}</ul>
+        <div style={baseStyles.card}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: spacing.md }}>
+            <h3 style={{ margin: 0, fontSize: "16px" }}>Order {order.order_number}</h3>
+            <span style={{
+              padding: "4px 10px", borderRadius: radius.sm, fontSize: "12px", fontWeight: 600, textTransform: "uppercase",
+              background: order.fulfillment_status === "fulfilled" ? colors.successSurface : colors.warningSurface,
+              color: order.fulfillment_status === "fulfilled" ? colors.success : colors.warning,
+            }}>{order.fulfillment_status}</span>
+          </div>
+          <div style={{ fontSize: "14px", color: colors.textSecondary, marginBottom: spacing.md }}>Placed {new Date(order.created_at).toLocaleString()}</div>
+          <div style={{ borderTop: `1px solid ${colors.border}`, paddingTop: spacing.md }}>
+            {order.line_items.map((li) => (
+              <div key={li.id} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", fontSize: "14px" }}>
+                <span>{li.title} &times; {li.quantity}</span>
+                <span style={{ fontWeight: 600 }}>${(parseFloat(li.price) * li.quantity).toFixed(2)}</span>
+              </div>
+            ))}
+            <div style={{ display: "flex", justifyContent: "space-between", borderTop: `1px solid ${colors.border}`, paddingTop: "8px", marginTop: "8px", fontWeight: 700 }}>
+              <span>Total</span><span>${order.total_price}</span>
+            </div>
+          </div>
         </div>
       )}
     </div>
