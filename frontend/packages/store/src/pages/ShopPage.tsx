@@ -74,12 +74,19 @@ export function ShopPage() {
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: spacing.md }}>
             {products.map((p) => (
               <div key={p.id} onClick={() => openProduct(p.id)}
-                style={{ ...baseStyles.card, cursor: "pointer", transition: "box-shadow 0.15s, border-color 0.15s" }}
+                style={{ ...baseStyles.card, cursor: "pointer", transition: "box-shadow 0.15s, border-color 0.15s", padding: 0, overflow: "hidden" }}
                 onMouseEnter={(e) => { e.currentTarget.style.boxShadow = shadow.md; e.currentTarget.style.borderColor = colors.borderStrong; }}
                 onMouseLeave={(e) => { e.currentTarget.style.boxShadow = "none"; e.currentTarget.style.borderColor = colors.border; }}>
-                <div style={{ fontSize: "12px", color: colors.textSecondary, textTransform: "capitalize", marginBottom: "4px" }}>{p.product_type}</div>
-                <h3 style={{ margin: "0 0 8px", fontSize: "15px", fontWeight: 600 }}>{p.title}</h3>
-                {p.min_price && <div style={{ fontSize: "16px", fontWeight: 700, color: colors.brand }}>${p.min_price}</div>}
+                {p.image_url ? (
+                  <img src={p.image_url} alt={p.title} style={{ width: "100%", height: "160px", objectFit: "cover", display: "block" }} />
+                ) : (
+                  <div style={{ width: "100%", height: "160px", background: colors.surfaceMuted, display: "flex", alignItems: "center", justifyContent: "center", color: colors.textSecondary, fontSize: "13px" }}>No image</div>
+                )}
+                <div style={{ padding: spacing.md }}>
+                  <div style={{ fontSize: "12px", color: colors.textSecondary, textTransform: "capitalize", marginBottom: "4px" }}>{p.product_type}</div>
+                  <h3 style={{ margin: "0 0 8px", fontSize: "15px", fontWeight: 600 }}>{p.title}</h3>
+                  {p.min_price && <div style={{ fontSize: "16px", fontWeight: 700, color: colors.brand }}>${p.min_price}</div>}
+                </div>
               </div>
             ))}
           </div>
@@ -91,6 +98,11 @@ export function ShopPage() {
         <div style={{ width: 320, flexShrink: 0, ...baseStyles.card, alignSelf: "flex-start", position: "sticky" as const, top: `calc(${spacing.lg} + 56px)` }}>
           {detailLoading ? <Spinner label="Loading..." /> : selectedProduct && (
             <>
+              {selectedProduct.images.length > 0 ? (
+                <img src={selectedProduct.images[0].src} alt={selectedProduct.title} style={{ width: "100%", height: "200px", objectFit: "cover", borderRadius: radius.sm, marginBottom: spacing.md, display: "block" }} />
+              ) : (
+                <div style={{ width: "100%", height: "200px", background: colors.surfaceMuted, borderRadius: radius.sm, marginBottom: spacing.md, display: "flex", alignItems: "center", justifyContent: "center", color: colors.textSecondary, fontSize: "13px" }}>No image</div>
+              )}
               <h2 style={{ margin: "0 0 4px", fontSize: "18px" }}>{selectedProduct.title}</h2>
               {selectedProduct.description && <p style={{ color: colors.textSecondary, fontSize: "14px", margin: "0 0 16px" }}>{selectedProduct.description}</p>}
               <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>

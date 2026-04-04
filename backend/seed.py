@@ -43,6 +43,8 @@ async def seed():
                 inv_item.levels.append(InventoryLevel(location_id=location.id, available=100, low_stock_threshold=10))
                 variant.inventory_item = inv_item
                 product.variants.append(variant)
+            image_name = title.replace(" ", "+")
+            product.images.append(ProductImage(src=f"https://placehold.co/400x300?text={image_name}", position=0))
             db.add(product)
 
         dairy = Collection(title="Dairy", handle="dairy", collection_type="manual")

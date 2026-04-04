@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.api.deps import get_db
-from app.models.product import Product, ProductVariant
+from app.models.product import Product, ProductVariant, ProductImage
 from app.models.inventory import InventoryItem
 from app.schemas.product import (
     ProductCreate, ProductUpdate, ProductOut, ProductListOut,
@@ -59,11 +59,26 @@ async def list_products(
         query = query.where(Product.product_type == product_type)
     result = await db.execute(query.order_by(Product.id))
     rows = result.all()
+
+    # Load first image for each product
+    product_ids = [r.id for r in rows]
+    image_map: dict[int, str | None] = {}
+    if product_ids:
+        img_result = await db.execute(
+            select(ProductImage.product_id, ProductImage.src)
+            .where(ProductImage.product_id.in_(product_ids))
+            .order_by(ProductImage.product_id, ProductImage.position)
+        )
+        for img_row in img_result.all():
+            if img_row.product_id not in image_map:
+                image_map[img_row.product_id] = img_row.src
+
     return [
         ProductListWithPriceOut(
             id=r.id, title=r.title, handle=r.handle,
             product_type=r.product_type, status=r.status,
             tags=r.tags, min_price=r.min_price,
+            image_url=image_map.get(r.id),
         )
         for r in rows
     ]

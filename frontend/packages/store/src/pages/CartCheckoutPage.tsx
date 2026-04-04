@@ -78,9 +78,16 @@ export function CartCheckoutPage() {
                 display: "flex", justifyContent: "space-between", alignItems: "center",
                 padding: "12px 0", borderBottom: i < items.length - 1 ? `1px solid ${colors.border}` : undefined,
               }}>
-                <div>
-                  <div style={{ fontWeight: 600, fontSize: "14px" }}>{item.product.title}</div>
-                  <div style={{ color: colors.textSecondary, fontSize: "13px" }}>{item.variant.title} &middot; ${item.variant.price}</div>
+                <div style={{ display: "flex", alignItems: "center", gap: spacing.sm }}>
+                  {item.product.images.length > 0 ? (
+                    <img src={item.product.images[0].src} alt={item.product.title} style={{ width: 48, height: 48, objectFit: "cover", borderRadius: radius.sm, flexShrink: 0 }} />
+                  ) : (
+                    <div style={{ width: 48, height: 48, background: colors.surfaceMuted, borderRadius: radius.sm, flexShrink: 0 }} />
+                  )}
+                  <div>
+                    <div style={{ fontWeight: 600, fontSize: "14px" }}>{item.product.title}</div>
+                    <div style={{ color: colors.textSecondary, fontSize: "13px" }}>{item.variant.title} &middot; ${item.variant.price}</div>
+                  </div>
                 </div>
                 <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
                   <Button variant="secondary" size="sm" onClick={() => updateQuantity(item.variant.id, item.quantity - 1)}>-</Button>

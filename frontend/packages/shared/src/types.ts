@@ -128,6 +128,7 @@ export interface ProductListWithPrice {
   status: string;
   tags: string[];
   min_price: string | null;
+  image_url: string | null;
 }
 
 export interface VariantLookup {

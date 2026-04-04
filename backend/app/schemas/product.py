@@ -94,6 +94,7 @@ class ProductListWithPriceOut(BaseModel):
     status: str
     tags: list[str]
     min_price: Decimal | None = None
+    image_url: str | None = None
 
     model_config = {"from_attributes": True}
 
