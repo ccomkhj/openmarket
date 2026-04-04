@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { api, useWebSocket, Button, colors, baseStyles, spacing, radius } from "@openmarket/shared";
+import { api, useWebSocket, Button, colors, baseStyles, spacing, radius, BarcodeScanner } from "@openmarket/shared";
 import type { ProductVariant } from "@openmarket/shared";
 
 interface SaleItem { variant: ProductVariant; productTitle: string; quantity: number; }
@@ -12,6 +12,7 @@ export function SalePage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const barcodeRef = useRef<HTMLInputElement>(null);
+  const [showCameraScanner, setShowCameraScanner] = useState(false);
 
   useEffect(() => { barcodeRef.current?.focus(); }, []);
   useEffect(() => {
@@ -83,6 +84,7 @@ export function SalePage() {
           <label style={{ display: "block", fontWeight: 600, marginBottom: "4px", fontSize: "13px", color: colors.textSecondary, textTransform: "uppercase", letterSpacing: "0.5px" }}>Scan Barcode</label>
           <input ref={barcodeRef} value={barcodeInput} onChange={(e) => setBarcodeInput(e.target.value)} onKeyDown={handleBarcodeKeyDown}
             placeholder="Scan or type barcode..." style={{ ...baseStyles.input, padding: "12px", fontSize: "16px" }} />
+          <Button variant="secondary" size="sm" onClick={() => setShowCameraScanner(true)} style={{ flexShrink: 0, marginTop: "8px" }}>📷 Camera Scan</Button>
         </div>
 
         <div style={{ marginBottom: spacing.lg }}>
@@ -147,6 +149,12 @@ export function SalePage() {
           </Button>
         </div>
       </div>
+      {showCameraScanner && (
+        <BarcodeScanner
+          onDetected={(code) => { setShowCameraScanner(false); addByBarcode(code); }}
+          onClose={() => setShowCameraScanner(false)}
+        />
+      )}
     </div>
   );
 }

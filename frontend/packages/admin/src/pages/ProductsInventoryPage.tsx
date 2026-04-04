@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import { api, useWebSocket, Button, Spinner, colors, baseStyles, spacing, radius } from "@openmarket/shared";
+import { api, useWebSocket, Button, Spinner, colors, baseStyles, spacing, radius, BarcodeScanner, OCRScanner } from "@openmarket/shared";
 import type { Product, ProductListWithPrice, InventoryLevel } from "@openmarket/shared";
 
 export function ProductsInventoryPage() {
@@ -16,6 +16,8 @@ export function ProductsInventoryPage() {
   const [newPrice, setNewPrice] = useState("");
   const [newBarcode, setNewBarcode] = useState("");
   const [stockInputs, setStockInputs] = useState<Record<number, string>>({});
+  const [showBarcodeScanner, setShowBarcodeScanner] = useState(false);
+  const [showOCRScanner, setShowOCRScanner] = useState(false);
 
   const loadProducts = async () => {
     setLoading(true);
@@ -83,12 +85,20 @@ export function ProductsInventoryPage() {
       {showCreate && (
         <div style={{ ...baseStyles.card, marginBottom: spacing.lg }}>
           <h3 style={{ margin: "0 0 12px", fontSize: "15px" }}>New Product</h3>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
-            <input placeholder="Title *" value={newTitle} onChange={(e) => { setNewTitle(e.target.value); setNewHandle(e.target.value.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "")); }} style={baseStyles.input} />
-            <input placeholder="Handle" value={newHandle} onChange={(e) => setNewHandle(e.target.value)} style={baseStyles.input} />
-            <input placeholder="Type (e.g. dairy)" value={newType} onChange={(e) => setNewType(e.target.value)} style={baseStyles.input} />
+          <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+            <div style={{ display: "flex", gap: "8px" }}>
+              <input placeholder="Title *" value={newTitle} onChange={(e) => { setNewTitle(e.target.value); setNewHandle(e.target.value.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "")); }} style={{ ...baseStyles.input, flex: 1 }} />
+              <Button variant="secondary" size="sm" onClick={() => setShowOCRScanner(true)} style={{ flexShrink: 0 }}>📷 OCR</Button>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+              <input placeholder="Handle" value={newHandle} onChange={(e) => setNewHandle(e.target.value)} style={baseStyles.input} />
+              <input placeholder="Type (e.g. dairy)" value={newType} onChange={(e) => setNewType(e.target.value)} style={baseStyles.input} />
+            </div>
             <input placeholder="Price *" value={newPrice} onChange={(e) => setNewPrice(e.target.value)} style={baseStyles.input} />
-            <input placeholder="Barcode" value={newBarcode} onChange={(e) => setNewBarcode(e.target.value)} style={baseStyles.input} />
+            <div style={{ display: "flex", gap: "8px" }}>
+              <input placeholder="Barcode" value={newBarcode} onChange={(e) => setNewBarcode(e.target.value)} style={{ ...baseStyles.input, flex: 1 }} />
+              <Button variant="secondary" size="sm" onClick={() => setShowBarcodeScanner(true)} style={{ flexShrink: 0 }}>📷 Scan</Button>
+            </div>
           </div>
           <Button variant="primary" onClick={createProduct} disabled={!newTitle || !newPrice} style={{ marginTop: "12px" }}>
             Create Product
@@ -183,6 +193,19 @@ export function ProductsInventoryPage() {
             </tbody>
           </table>
         </div>
+      )}
+      {showBarcodeScanner && (
+        <BarcodeScanner
+          onDetected={(code) => { setNewBarcode(code); setShowBarcodeScanner(false); }}
+          onClose={() => setShowBarcodeScanner(false)}
+        />
+      )}
+      {showOCRScanner && (
+        <OCRScanner
+          label="Scan Product Name"
+          onDetected={(text) => { setNewTitle(text); setNewHandle(text.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "")); setShowOCRScanner(false); }}
+          onClose={() => setShowOCRScanner(false)}
+        />
       )}
     </div>
   );
