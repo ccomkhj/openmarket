@@ -128,6 +128,7 @@ export interface ProductListWithPrice {
   status: string;
   tags: string[];
   min_price: string | null;
+  image_url: string | null;
 }
 
 export interface VariantLookup {
@@ -139,4 +140,33 @@ export interface VariantLookup {
   barcode: string;
   price: string;
   compare_at_price: string | null;
+}
+
+export interface DailySales {
+  date: string;
+  order_count: number;
+  revenue: string;
+}
+
+export interface TopProduct {
+  title: string;
+  quantity_sold: number;
+  revenue: string;
+}
+
+export interface AnalyticsSummary {
+  total_revenue: string;
+  total_orders: number;
+  average_order_value: string;
+  daily_sales: DailySales[];
+  top_products: TopProduct[];
+  orders_by_source: Record<string, number>;
+}
+
+export interface TaxRate {
+  id: number; name: string; rate: string; region: string; is_default: boolean;
+}
+
+export interface ShippingMethod {
+  id: number; name: string; price: string; min_order_amount: string; is_active: boolean;
 }

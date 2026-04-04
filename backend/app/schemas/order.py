@@ -25,6 +25,7 @@ class OrderCreate(BaseModel):
     customer_name: str | None = None
     customer_phone: str | None = None
     shipping_address: dict | None = None
+    shipping_method_id: int | None = None
     line_items: list[LineItemCreate]
 
 
@@ -38,6 +39,9 @@ class OrderOut(BaseModel):
     customer_id: int | None
     source: str
     fulfillment_status: str
+    subtotal: Decimal
+    tax_amount: Decimal
+    shipping_amount: Decimal
     total_price: Decimal
     shipping_address: dict | None
     created_at: datetime

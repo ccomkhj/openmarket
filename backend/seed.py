@@ -2,6 +2,7 @@
 import asyncio
 from app.database import engine, async_session, Base
 from app.models import *  # noqa
+from app.models.tax_shipping import TaxRate, ShippingMethod
 
 
 async def seed():
@@ -43,11 +44,19 @@ async def seed():
                 inv_item.levels.append(InventoryLevel(location_id=location.id, available=100, low_stock_threshold=10))
                 variant.inventory_item = inv_item
                 product.variants.append(variant)
+            image_name = title.replace(" ", "+")
+            product.images.append(ProductImage(src=f"https://placehold.co/400x300?text={image_name}", position=0))
             db.add(product)
 
         dairy = Collection(title="Dairy", handle="dairy", collection_type="manual")
         beverages = Collection(title="Beverages", handle="beverages", collection_type="manual")
         db.add_all([dairy, beverages])
+
+        tax = TaxRate(name="Standard Tax", rate=0.10, region="default", is_default=True)
+        db.add(tax)
+        standard_shipping = ShippingMethod(name="Standard Delivery", price=5.00, min_order_amount=50.00)
+        express_shipping = ShippingMethod(name="Express Delivery", price=12.00, min_order_amount=0)
+        db.add_all([standard_shipping, express_shipping])
 
         await db.commit()
         print("Seed data created successfully!")

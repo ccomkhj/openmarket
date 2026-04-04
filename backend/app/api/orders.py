@@ -19,7 +19,10 @@ async def create(body: OrderCreate, db: AsyncSession = Depends(get_db)):
             source=body.source,
             line_items_data=[li.model_dump() for li in body.line_items],
             customer_id=body.customer_id,
+            customer_name=body.customer_name,
+            customer_phone=body.customer_phone,
             shipping_address=body.shipping_address,
+            shipping_method_id=body.shipping_method_id,
         )
     except ValueError as e:
         raise HTTPException(status_code=409, detail=str(e))

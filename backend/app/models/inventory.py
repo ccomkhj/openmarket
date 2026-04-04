@@ -1,4 +1,4 @@
-from sqlalchemy import Column, ForeignKey, Integer, Numeric, String
+from sqlalchemy import Column, ForeignKey, Index, Integer, Numeric, String
 from sqlalchemy.orm import relationship
 
 from app.database import Base
@@ -25,6 +25,10 @@ class InventoryItem(Base):
 
 class InventoryLevel(Base):
     __tablename__ = "inventory_levels"
+    __table_args__ = (
+        Index("ix_inventory_levels_inventory_item_id", "inventory_item_id"),
+        Index("ix_inventory_levels_location_id", "location_id"),
+    )
 
     id = Column(Integer, primary_key=True)
     inventory_item_id = Column(Integer, ForeignKey("inventory_items.id", ondelete="CASCADE"), nullable=False)

@@ -139,3 +139,34 @@ async def test_list_products_includes_min_price(client):
     assert response.status_code == 200
     data = response.json()
     assert data[0]["min_price"] == "2.99"
+
+
+@pytest.mark.asyncio
+async def test_list_products_includes_image_url(client, db):
+    from app.models.product import ProductImage
+
+    # Create a product without an image — image_url should be null
+    create = await client.post("/api/products", json={
+        "title": "Milk", "handle": "milk",
+        "variants": [{"title": "1L", "price": "2.99"}],
+    })
+    assert create.status_code == 201
+    pid = create.json()["id"]
+
+    response = await client.get("/api/products")
+    assert response.status_code == 200
+    data = response.json()
+    product = next(p for p in data if p["id"] == pid)
+    assert "image_url" in product
+    assert product["image_url"] is None
+
+    # Add an image using the test DB session (same transaction scope as the client)
+    img = ProductImage(product_id=pid, src="https://placehold.co/400x300?text=Milk", position=0)
+    db.add(img)
+    await db.flush()
+
+    response2 = await client.get("/api/products")
+    assert response2.status_code == 200
+    data2 = response2.json()
+    product2 = next(p for p in data2 if p["id"] == pid)
+    assert product2["image_url"] == "https://placehold.co/400x300?text=Milk"

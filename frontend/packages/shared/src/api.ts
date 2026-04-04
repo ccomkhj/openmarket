@@ -68,10 +68,30 @@ export const api = {
     lookup: (code: string) =>
       request<import("./types").Discount>(`/discounts/lookup?code=${encodeURIComponent(code)}`, { method: "POST" }),
   },
+  analytics: {
+    summary: (days?: number) =>
+      request<import("./types").AnalyticsSummary>(`/analytics/summary${days ? `?days=${days}` : ""}`),
+  },
+  taxRates: {
+    list: () => request<import("./types").TaxRate[]>("/tax-rates"),
+  },
+  shippingMethods: {
+    list: () => request<import("./types").ShippingMethod[]>("/shipping-methods"),
+  },
   customers: {
     list: () => request<import("./types").Customer[]>("/customers"),
     get: (id: number) => request<import("./types").Customer>(`/customers/${id}`),
     create: (data: Record<string, unknown>) =>
       request<import("./types").Customer>("/customers", { method: "POST", body: JSON.stringify(data) }),
+    update: (id: number, data: Record<string, unknown>) =>
+      request<import("./types").Customer>(`/customers/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+    lookup: (params: { email?: string; phone?: string }) => {
+      const qs = new URLSearchParams(
+        Object.fromEntries(Object.entries(params).filter(([, v]) => v != null)) as Record<string, string>
+      ).toString();
+      return request<import("./types").Customer>(`/customers/lookup?${qs}`);
+    },
+    orders: (id: number) =>
+      request<import("./types").OrderListItem[]>(`/customers/${id}/orders`),
   },
 };

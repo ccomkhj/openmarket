@@ -1,4 +1,4 @@
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, Numeric, String, Text, func
+from sqlalchemy import Column, DateTime, ForeignKey, Index, Integer, Numeric, String, Text, func
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import relationship
 
@@ -7,6 +7,10 @@ from app.database import Base
 
 class Product(Base):
     __tablename__ = "products"
+    __table_args__ = (
+        Index("ix_products_product_type", "product_type"),
+        Index("ix_products_status", "status"),
+    )
 
     id = Column(Integer, primary_key=True)
     title = Column(String, nullable=False)
@@ -24,6 +28,11 @@ class Product(Base):
 
 class ProductVariant(Base):
     __tablename__ = "product_variants"
+    __table_args__ = (
+        Index("ix_product_variants_barcode", "barcode"),
+        Index("ix_product_variants_sku", "sku"),
+        Index("ix_product_variants_product_id", "product_id"),
+    )
 
     id = Column(Integer, primary_key=True)
     product_id = Column(Integer, ForeignKey("products.id", ondelete="CASCADE"), nullable=False)
@@ -40,6 +49,9 @@ class ProductVariant(Base):
 
 class ProductImage(Base):
     __tablename__ = "product_images"
+    __table_args__ = (
+        Index("ix_product_images_product_id", "product_id"),
+    )
 
     id = Column(Integer, primary_key=True)
     product_id = Column(Integer, ForeignKey("products.id", ondelete="CASCADE"), nullable=False)

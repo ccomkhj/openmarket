@@ -1,12 +1,15 @@
 import itertools
 from datetime import datetime
+from decimal import Decimal
 
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.customer import Customer
 from app.models.inventory import InventoryItem
 from app.models.order import Order, LineItem
 from app.models.product import ProductVariant
+from app.models.tax_shipping import TaxRate, ShippingMethod
 from app.ws.manager import manager
 
 _order_counter = itertools.count(1001)
@@ -17,9 +20,29 @@ async def create_order(
     source: str,
     line_items_data: list[dict],
     customer_id: int | None = None,
+    customer_name: str | None = None,
+    customer_phone: str | None = None,
     shipping_address: dict | None = None,
+    shipping_method_id: int | None = None,
 ) -> Order:
-    total = 0
+    # Auto-create or link customer by phone
+    if customer_id is None and customer_phone:
+        result = await db.execute(
+            select(Customer).where(Customer.phone == customer_phone)
+        )
+        existing = result.scalar_one_or_none()
+        if existing:
+            customer_id = existing.id
+        elif customer_name:
+            parts = customer_name.split(" ", 1)
+            first = parts[0]
+            last = parts[1] if len(parts) > 1 else ""
+            new_customer = Customer(first_name=first, last_name=last, phone=customer_phone)
+            db.add(new_customer)
+            await db.flush()
+            customer_id = new_customer.id
+
+    subtotal = Decimal("0")
     line_items = []
     inventory_adjustments = []
 
@@ -28,8 +51,8 @@ async def create_order(
             select(ProductVariant).where(ProductVariant.id == item_data["variant_id"])
         )
         variant = variant_result.scalar_one()
-        line_total = variant.price * item_data["quantity"]
-        total += line_total
+        line_total = Decimal(str(variant.price)) * item_data["quantity"]
+        subtotal += line_total
 
         line_items.append(LineItem(
             variant_id=variant.id,
@@ -66,6 +89,31 @@ async def create_order(
             "available": row.available,
         })
 
+    # Compute tax from default tax rate (if any)
+    tax_amount = Decimal("0")
+    tax_result = await db.execute(
+        select(TaxRate).where(TaxRate.is_default == True)  # noqa: E712
+    )
+    default_tax = tax_result.scalar_one_or_none()
+    if default_tax is not None:
+        tax_amount = subtotal * Decimal(str(default_tax.rate))
+
+    # Compute shipping from shipping method (if provided)
+    shipping_amount = Decimal("0")
+    if shipping_method_id is not None:
+        sm_result = await db.execute(
+            select(ShippingMethod).where(ShippingMethod.id == shipping_method_id)
+        )
+        shipping_method = sm_result.scalar_one_or_none()
+        if shipping_method is not None:
+            min_amount = Decimal(str(shipping_method.min_order_amount))
+            if min_amount > 0 and subtotal >= min_amount:
+                shipping_amount = Decimal("0")
+            else:
+                shipping_amount = Decimal(str(shipping_method.price))
+
+    total_price = subtotal + tax_amount + shipping_amount
+
     order_number = f"ORD-{datetime.now().strftime('%Y%m%d%H%M%S')}-{next(_order_counter)}"
 
     order = Order(
@@ -73,7 +121,10 @@ async def create_order(
         customer_id=customer_id,
         source=source,
         fulfillment_status="fulfilled" if source == "pos" else "unfulfilled",
-        total_price=total,
+        subtotal=subtotal,
+        tax_amount=tax_amount,
+        shipping_amount=shipping_amount,
+        total_price=total_price,
         shipping_address=shipping_address,
     )
     for li in line_items:
