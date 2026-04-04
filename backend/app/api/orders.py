@@ -22,6 +22,7 @@ async def create(body: OrderCreate, db: AsyncSession = Depends(get_db)):
             customer_name=body.customer_name,
             customer_phone=body.customer_phone,
             shipping_address=body.shipping_address,
+            shipping_method_id=body.shipping_method_id,
         )
     except ValueError as e:
         raise HTTPException(status_code=409, detail=str(e))

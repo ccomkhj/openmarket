@@ -12,6 +12,7 @@ from app.api.orders import router as orders_router
 from app.api.fulfillments import router as fulfillments_router
 from app.api.discounts import router as discounts_router
 from app.api.analytics import router as analytics_router
+from app.api.tax_shipping import router as tax_shipping_router
 from app.ws.manager import manager
 
 
@@ -38,6 +39,7 @@ app.include_router(orders_router)
 app.include_router(fulfillments_router)
 app.include_router(discounts_router)
 app.include_router(analytics_router)
+app.include_router(tax_shipping_router)
 
 
 @app.get("/api/health")
