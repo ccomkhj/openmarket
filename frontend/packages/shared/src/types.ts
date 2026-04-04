@@ -141,3 +141,24 @@ export interface VariantLookup {
   price: string;
   compare_at_price: string | null;
 }
+
+export interface DailySales {
+  date: string;
+  order_count: number;
+  revenue: string;
+}
+
+export interface TopProduct {
+  title: string;
+  quantity_sold: number;
+  revenue: string;
+}
+
+export interface AnalyticsSummary {
+  total_revenue: string;
+  total_orders: number;
+  average_order_value: string;
+  daily_sales: DailySales[];
+  top_products: TopProduct[];
+  orders_by_source: Record<string, number>;
+}

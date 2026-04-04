@@ -68,6 +68,10 @@ export const api = {
     lookup: (code: string) =>
       request<import("./types").Discount>(`/discounts/lookup?code=${encodeURIComponent(code)}`, { method: "POST" }),
   },
+  analytics: {
+    summary: (days?: number) =>
+      request<import("./types").AnalyticsSummary>(`/analytics/summary${days ? `?days=${days}` : ""}`),
+  },
   customers: {
     list: () => request<import("./types").Customer[]>("/customers"),
     get: (id: number) => request<import("./types").Customer>(`/customers/${id}`),

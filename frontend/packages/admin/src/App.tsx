@@ -1,6 +1,7 @@
 import { Routes, Route, Link, Navigate, useLocation } from "react-router-dom";
 import { ProductsInventoryPage } from "./pages/ProductsInventoryPage";
 import { OrdersPage } from "./pages/OrdersPage";
+import { AnalyticsPage } from "./pages/AnalyticsPage";
 import { baseStyles, colors } from "@openmarket/shared";
 
 export function App() {
@@ -16,11 +17,13 @@ export function App() {
       <nav style={baseStyles.nav}>
         <span style={{ ...baseStyles.navBrand, cursor: "default" }}>OpenMarket Admin</span>
         <div style={{ flex: 1 }} />
+        <Link to="/analytics" style={linkStyle("/analytics")}>Analytics</Link>
         <Link to="/products" style={linkStyle("/products")}>Products & Inventory</Link>
         <Link to="/orders" style={linkStyle("/orders")}>Orders</Link>
       </nav>
       <Routes>
-        <Route path="/" element={<Navigate to="/products" replace />} />
+        <Route path="/" element={<Navigate to="/analytics" replace />} />
+        <Route path="/analytics" element={<AnalyticsPage />} />
         <Route path="/products" element={<ProductsInventoryPage />} />
         <Route path="/orders" element={<OrdersPage />} />
       </Routes>
