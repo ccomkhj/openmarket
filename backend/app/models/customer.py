@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, ForeignKey, Integer, String
+from sqlalchemy import Boolean, Column, ForeignKey, Index, Integer, String
 from sqlalchemy.orm import relationship
 
 from app.database import Base
@@ -6,6 +6,10 @@ from app.database import Base
 
 class Customer(Base):
     __tablename__ = "customers"
+    __table_args__ = (
+        Index("ix_customers_email", "email"),
+        Index("ix_customers_phone", "phone"),
+    )
 
     id = Column(Integer, primary_key=True)
     email = Column(String, nullable=True)

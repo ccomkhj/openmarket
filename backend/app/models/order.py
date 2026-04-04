@@ -1,4 +1,4 @@
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, Numeric, String, func
+from sqlalchemy import Column, DateTime, ForeignKey, Index, Integer, Numeric, String, func
 from sqlalchemy.dialects.postgresql import JSON
 from sqlalchemy.orm import relationship
 
@@ -7,6 +7,9 @@ from app.database import Base
 
 class Return(Base):
     __tablename__ = "returns"
+    __table_args__ = (
+        Index("ix_returns_order_id", "order_id"),
+    )
     id = Column(Integer, primary_key=True)
     order_id = Column(Integer, ForeignKey("orders.id"), nullable=False)
     reason = Column(String, default="")
@@ -18,6 +21,10 @@ class Return(Base):
 
 class ReturnItem(Base):
     __tablename__ = "return_items"
+    __table_args__ = (
+        Index("ix_return_items_return_id", "return_id"),
+        Index("ix_return_items_line_item_id", "line_item_id"),
+    )
     id = Column(Integer, primary_key=True)
     return_id = Column(Integer, ForeignKey("returns.id", ondelete="CASCADE"), nullable=False)
     line_item_id = Column(Integer, ForeignKey("line_items.id"), nullable=False)
@@ -28,6 +35,12 @@ class ReturnItem(Base):
 
 class Order(Base):
     __tablename__ = "orders"
+    __table_args__ = (
+        Index("ix_orders_customer_id", "customer_id"),
+        Index("ix_orders_source", "source"),
+        Index("ix_orders_fulfillment_status", "fulfillment_status"),
+        Index("ix_orders_created_at", "created_at"),
+    )
 
     id = Column(Integer, primary_key=True)
     order_number = Column(String, unique=True, nullable=False)
@@ -48,6 +61,10 @@ class Order(Base):
 
 class LineItem(Base):
     __tablename__ = "line_items"
+    __table_args__ = (
+        Index("ix_line_items_order_id", "order_id"),
+        Index("ix_line_items_variant_id", "variant_id"),
+    )
 
     id = Column(Integer, primary_key=True)
     order_id = Column(Integer, ForeignKey("orders.id", ondelete="CASCADE"), nullable=False)
