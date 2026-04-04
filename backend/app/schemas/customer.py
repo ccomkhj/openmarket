@@ -26,6 +26,13 @@ class CustomerCreate(BaseModel):
     addresses: list[AddressCreate] = []
 
 
+class CustomerUpdate(BaseModel):
+    email: str | None = None
+    first_name: str | None = None
+    last_name: str | None = None
+    phone: str | None = None
+
+
 class CustomerOut(BaseModel):
     id: int
     email: str | None

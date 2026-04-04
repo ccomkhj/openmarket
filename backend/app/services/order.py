@@ -4,6 +4,7 @@ from datetime import datetime
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.customer import Customer
 from app.models.inventory import InventoryItem
 from app.models.order import Order, LineItem
 from app.models.product import ProductVariant
@@ -17,8 +18,27 @@ async def create_order(
     source: str,
     line_items_data: list[dict],
     customer_id: int | None = None,
+    customer_name: str | None = None,
+    customer_phone: str | None = None,
     shipping_address: dict | None = None,
 ) -> Order:
+    # Auto-create or link customer by phone
+    if customer_id is None and customer_phone:
+        result = await db.execute(
+            select(Customer).where(Customer.phone == customer_phone)
+        )
+        existing = result.scalar_one_or_none()
+        if existing:
+            customer_id = existing.id
+        elif customer_name:
+            parts = customer_name.split(" ", 1)
+            first = parts[0]
+            last = parts[1] if len(parts) > 1 else ""
+            new_customer = Customer(first_name=first, last_name=last, phone=customer_phone)
+            db.add(new_customer)
+            await db.flush()
+            customer_id = new_customer.id
+
     total = 0
     line_items = []
     inventory_adjustments = []
