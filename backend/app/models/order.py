@@ -5,6 +5,27 @@ from sqlalchemy.orm import relationship
 from app.database import Base
 
 
+class Return(Base):
+    __tablename__ = "returns"
+    id = Column(Integer, primary_key=True)
+    order_id = Column(Integer, ForeignKey("orders.id"), nullable=False)
+    reason = Column(String, default="")
+    total_refund = Column(Numeric(10, 2), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    order = relationship("Order")
+    items = relationship("ReturnItem", back_populates="return_record", cascade="all, delete-orphan")
+
+
+class ReturnItem(Base):
+    __tablename__ = "return_items"
+    id = Column(Integer, primary_key=True)
+    return_id = Column(Integer, ForeignKey("returns.id", ondelete="CASCADE"), nullable=False)
+    line_item_id = Column(Integer, ForeignKey("line_items.id"), nullable=False)
+    quantity = Column(Integer, nullable=False)
+    return_record = relationship("Return", back_populates="items")
+    line_item = relationship("LineItem")
+
+
 class Order(Base):
     __tablename__ = "orders"
 

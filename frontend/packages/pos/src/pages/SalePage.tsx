@@ -3,6 +3,7 @@ import { api, useWebSocket, Button, colors, baseStyles, spacing, radius, Barcode
 import type { ProductVariant } from "@openmarket/shared";
 import { Receipt } from "../components/Receipt";
 import type { ReceiptItem } from "../components/Receipt";
+import { ReturnModal } from "../components/ReturnModal";
 
 interface SaleItem { variant: ProductVariant; productTitle: string; quantity: number; }
 interface ReceiptData { orderNumber: string; items: ReceiptItem[]; total: number; }
@@ -16,6 +17,7 @@ export function SalePage() {
   const [receiptData, setReceiptData] = useState<ReceiptData | null>(null);
   const barcodeRef = useRef<HTMLInputElement>(null);
   const [showCameraScanner, setShowCameraScanner] = useState(false);
+  const [showReturn, setShowReturn] = useState(false);
 
   useEffect(() => { barcodeRef.current?.focus(); }, []);
 
@@ -85,7 +87,10 @@ export function SalePage() {
     <div style={{ display: "flex", height: "100vh" }}>
       {/* Left: Input Area */}
       <div style={{ flex: 1, padding: spacing.lg, borderRight: `1px solid ${colors.border}`, background: colors.surface, display: "flex", flexDirection: "column" }}>
-        <h2 style={{ margin: `0 0 ${spacing.lg}`, color: colors.brand }}>POS</h2>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: spacing.lg }}>
+          <h2 style={{ margin: 0, color: colors.brand }}>POS</h2>
+          <Button variant="secondary" size="sm" onClick={() => setShowReturn(true)}>Returns</Button>
+        </div>
 
         <div style={{ marginBottom: spacing.lg }}>
           <label style={{ display: "block", fontWeight: 600, marginBottom: "4px", fontSize: "13px", color: colors.textSecondary, textTransform: "uppercase", letterSpacing: "0.5px" }}>Scan Barcode</label>
@@ -169,6 +174,7 @@ export function SalePage() {
           onClose={() => { setReceiptData(null); barcodeRef.current?.focus(); }}
         />
       )}
+      {showReturn && <ReturnModal onClose={() => setShowReturn(false)} />}
     </div>
   );
 }
