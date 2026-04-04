@@ -1,8 +1,11 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { api, useWebSocket, Button, colors, baseStyles, spacing, radius, BarcodeScanner } from "@openmarket/shared";
 import type { ProductVariant } from "@openmarket/shared";
+import { Receipt } from "../components/Receipt";
+import type { ReceiptItem } from "../components/Receipt";
 
 interface SaleItem { variant: ProductVariant; productTitle: string; quantity: number; }
+interface ReceiptData { orderNumber: string; items: ReceiptItem[]; total: number; }
 
 export function SalePage() {
   const [barcodeInput, setBarcodeInput] = useState("");
@@ -10,14 +13,11 @@ export function SalePage() {
   const [searchResults, setSearchResults] = useState<{ title: string; variants: ProductVariant[] }[]>([]);
   const [saleItems, setSaleItems] = useState<SaleItem[]>([]);
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+  const [receiptData, setReceiptData] = useState<ReceiptData | null>(null);
   const barcodeRef = useRef<HTMLInputElement>(null);
   const [showCameraScanner, setShowCameraScanner] = useState(false);
 
   useEffect(() => { barcodeRef.current?.focus(); }, []);
-  useEffect(() => {
-    if (success) { const t = setTimeout(() => { setSuccess(""); barcodeRef.current?.focus(); }, 3000); return () => clearTimeout(t); }
-  }, [success]);
 
   const handleInventoryUpdate = useCallback(() => {}, []);
   useWebSocket(handleInventoryUpdate);
@@ -67,8 +67,15 @@ export function SalePage() {
     setError("");
     try {
       const order = await api.orders.create({ source: "pos", line_items: saleItems.map((i) => ({ variant_id: i.variant.id, quantity: i.quantity })) });
+      const receiptItems: ReceiptItem[] = saleItems.map((i) => ({
+        productTitle: i.productTitle,
+        variantTitle: i.variant.title,
+        quantity: i.quantity,
+        price: i.variant.price,
+      }));
+      const receiptTotal = saleItems.reduce((sum, i) => sum + parseFloat(i.variant.price) * i.quantity, 0);
       setSaleItems([]);
-      setSuccess(`Sale completed! ${order.order_number}`);
+      setReceiptData({ orderNumber: String(order.order_number), items: receiptItems, total: receiptTotal });
     } catch (e: any) { setError(e.message); }
   };
 
@@ -104,7 +111,6 @@ export function SalePage() {
         </div>
 
         {error && <div style={{ background: colors.dangerSurface, color: colors.danger, padding: "10px 14px", borderRadius: radius.sm, fontSize: "14px", marginBottom: spacing.md }}>{error}</div>}
-        {success && <div style={{ background: colors.successSurface, color: colors.success, padding: "10px 14px", borderRadius: radius.sm, fontSize: "16px", fontWeight: 600 }}>{success}</div>}
       </div>
 
       {/* Right: Current Sale */}
@@ -153,6 +159,14 @@ export function SalePage() {
         <BarcodeScanner
           onDetected={(code) => { setShowCameraScanner(false); addByBarcode(code); }}
           onClose={() => setShowCameraScanner(false)}
+        />
+      )}
+      {receiptData && (
+        <Receipt
+          orderNumber={receiptData.orderNumber}
+          items={receiptData.items}
+          total={receiptData.total}
+          onClose={() => { setReceiptData(null); barcodeRef.current?.focus(); }}
         />
       )}
     </div>
