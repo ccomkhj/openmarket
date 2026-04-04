@@ -17,15 +17,17 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
     const scanner = new Html5Qrcode(containerId);
     scannerRef.current = scanner;
 
+    const onSuccess = (decodedText: string) => {
+      scanner.stop().catch(() => {});
+      onDetected(decodedText);
+    };
+    const config = { fps: 10, qrbox: { width: 250, height: 150 } };
+
+    // Try rear camera first (mobile), fall back to any camera (desktop/Mac)
     scanner
-      .start(
-        { facingMode: "environment" },
-        { fps: 10, qrbox: { width: 250, height: 150 } },
-        (decodedText) => {
-          scanner.stop().catch(() => {});
-          onDetected(decodedText);
-        },
-        () => {} // ignore scan failures
+      .start({ facingMode: "environment" }, config, onSuccess, () => {})
+      .catch(() =>
+        scanner.start({ facingMode: "user" }, config, onSuccess, () => {})
       )
       .catch((err) => {
         setError("Could not access camera. Please allow camera permissions.");
