@@ -1,2 +1,6 @@
 import { SalePage } from "./pages/SalePage";
-export function App() { return <SalePage />; }
+import { font } from "@openmarket/shared";
+
+export function App() {
+  return <div style={{ fontFamily: font.body }}><SalePage /></div>;
+}

@@ -1,13 +1,13 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { api, useWebSocket } from "@openmarket/shared";
-import type { Product, ProductVariant } from "@openmarket/shared";
+import { api, useWebSocket, Button, colors, baseStyles, spacing, radius } from "@openmarket/shared";
+import type { ProductVariant } from "@openmarket/shared";
 
 interface SaleItem { variant: ProductVariant; productTitle: string; quantity: number; }
 
 export function SalePage() {
   const [barcodeInput, setBarcodeInput] = useState("");
   const [searchInput, setSearchInput] = useState("");
-  const [searchResults, setSearchResults] = useState<Product[]>([]);
+  const [searchResults, setSearchResults] = useState<{ title: string; variants: ProductVariant[] }[]>([]);
   const [saleItems, setSaleItems] = useState<SaleItem[]>([]);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -15,7 +15,7 @@ export function SalePage() {
 
   useEffect(() => { barcodeRef.current?.focus(); }, []);
   useEffect(() => {
-    if (success) { const timer = setTimeout(() => { setSuccess(""); barcodeRef.current?.focus(); }, 3000); return () => clearTimeout(timer); }
+    if (success) { const t = setTimeout(() => { setSuccess(""); barcodeRef.current?.focus(); }, 3000); return () => clearTimeout(t); }
   }, [success]);
 
   const handleInventoryUpdate = useCallback(() => {}, []);
@@ -24,89 +24,127 @@ export function SalePage() {
   const addByBarcode = async (barcode: string) => {
     setError("");
     try {
-      const products = await api.products.list({ status: "active" });
-      for (const p of products) {
-        const full = await api.products.get(p.id);
-        const variant = full.variants.find((v) => v.barcode === barcode);
-        if (variant) { addToSale(full.title, variant); setBarcodeInput(""); return; }
-      }
+      const result = await api.variants.lookup(barcode);
+      addToSale(result.product_title, {
+        id: result.id, product_id: result.product_id, title: result.title,
+        sku: result.sku, barcode: result.barcode, price: result.price,
+        compare_at_price: result.compare_at_price, position: 0,
+      });
+      setBarcodeInput("");
+    } catch {
       setError(`No product found with barcode: ${barcode}`);
-    } catch { setError("Scan failed"); }
+    }
   };
 
   const searchProducts = async (query: string) => {
     if (!query) { setSearchResults([]); return; }
     const products = await api.products.list({ status: "active", search: query });
     const full = await Promise.all(products.slice(0, 5).map((p) => api.products.get(p.id)));
-    setSearchResults(full);
+    setSearchResults(full.map((p) => ({ title: p.title, variants: p.variants })));
   };
 
   const addToSale = (productTitle: string, variant: ProductVariant) => {
     setSaleItems((prev) => {
       const existing = prev.find((i) => i.variant.id === variant.id);
-      if (existing) { return prev.map((i) => i.variant.id === variant.id ? { ...i, quantity: i.quantity + 1 } : i); }
+      if (existing) return prev.map((i) => i.variant.id === variant.id ? { ...i, quantity: i.quantity + 1 } : i);
       return [...prev, { variant, productTitle, quantity: 1 }];
     });
     setSearchResults([]); setSearchInput(""); barcodeRef.current?.focus();
   };
 
-  const removeItem = (variantId: number) => { setSaleItems((prev) => prev.filter((i) => i.variant.id !== variantId)); };
+  const updateQty = (variantId: number, qty: number) => {
+    if (qty <= 0) { setSaleItems((prev) => prev.filter((i) => i.variant.id !== variantId)); return; }
+    setSaleItems((prev) => prev.map((i) => i.variant.id === variantId ? { ...i, quantity: qty } : i));
+  };
 
+  const removeItem = (variantId: number) => setSaleItems((prev) => prev.filter((i) => i.variant.id !== variantId));
   const total = saleItems.reduce((sum, item) => sum + parseFloat(item.variant.price) * item.quantity, 0);
+
+  const voidSale = () => { if (confirm("Void this sale? All items will be cleared.")) { setSaleItems([]); barcodeRef.current?.focus(); } };
 
   const completeSale = async () => {
     setError("");
     try {
-      await api.orders.create({ source: "pos", line_items: saleItems.map((i) => ({ variant_id: i.variant.id, quantity: i.quantity })) });
-      setSaleItems([]); setSuccess("Sale completed!");
+      const order = await api.orders.create({ source: "pos", line_items: saleItems.map((i) => ({ variant_id: i.variant.id, quantity: i.quantity })) });
+      setSaleItems([]);
+      setSuccess(`Sale completed! ${order.order_number}`);
     } catch (e: any) { setError(e.message); }
   };
 
-  const handleBarcodeKeyDown = (e: React.KeyboardEvent) => { if (e.key === "Enter" && barcodeInput.trim()) { addByBarcode(barcodeInput.trim()); } };
+  const handleBarcodeKeyDown = (e: React.KeyboardEvent) => { if (e.key === "Enter" && barcodeInput.trim()) addByBarcode(barcodeInput.trim()); };
 
   return (
-    <div style={{ display: "flex", height: "100vh", fontFamily: "sans-serif" }}>
-      <div style={{ flex: 1, padding: "1rem", borderRight: "1px solid #ddd" }}>
-        <h2>POS</h2>
-        <div style={{ marginBottom: "1rem" }}>
-          <label style={{ display: "block", fontWeight: "bold", marginBottom: "0.25rem" }}>Scan Barcode</label>
+    <div style={{ display: "flex", height: "100vh" }}>
+      {/* Left: Input Area */}
+      <div style={{ flex: 1, padding: spacing.lg, borderRight: `1px solid ${colors.border}`, background: colors.surface, display: "flex", flexDirection: "column" }}>
+        <h2 style={{ margin: `0 0 ${spacing.lg}`, color: colors.brand }}>POS</h2>
+
+        <div style={{ marginBottom: spacing.lg }}>
+          <label style={{ display: "block", fontWeight: 600, marginBottom: "4px", fontSize: "13px", color: colors.textSecondary, textTransform: "uppercase", letterSpacing: "0.5px" }}>Scan Barcode</label>
           <input ref={barcodeRef} value={barcodeInput} onChange={(e) => setBarcodeInput(e.target.value)} onKeyDown={handleBarcodeKeyDown}
-            placeholder="Scan or type barcode..." style={{ width: "100%", padding: "0.75rem", fontSize: "1.1rem", boxSizing: "border-box" }} />
+            placeholder="Scan or type barcode..." style={{ ...baseStyles.input, padding: "12px", fontSize: "16px" }} />
         </div>
-        <div style={{ marginBottom: "1rem" }}>
-          <label style={{ display: "block", fontWeight: "bold", marginBottom: "0.25rem" }}>Search Product</label>
+
+        <div style={{ marginBottom: spacing.lg }}>
+          <label style={{ display: "block", fontWeight: 600, marginBottom: "4px", fontSize: "13px", color: colors.textSecondary, textTransform: "uppercase", letterSpacing: "0.5px" }}>Search Product</label>
           <input value={searchInput} onChange={(e) => { setSearchInput(e.target.value); searchProducts(e.target.value); }}
-            placeholder="Type to search..." style={{ width: "100%", padding: "0.5rem", boxSizing: "border-box" }} />
+            placeholder="Type to search..." style={baseStyles.input} />
           {searchResults.length > 0 && (
-            <div style={{ border: "1px solid #ddd", maxHeight: 200, overflowY: "auto" }}>
+            <div style={{ border: `1px solid ${colors.border}`, borderRadius: radius.sm, maxHeight: 200, overflowY: "auto", marginTop: "4px", background: colors.surface }}>
               {searchResults.map((p) => p.variants.map((v) => (
                 <div key={v.id} onClick={() => addToSale(p.title, v)}
-                  style={{ padding: "0.5rem", cursor: "pointer", borderBottom: "1px solid #eee" }}>
-                  {p.title} - {v.title} (${v.price})
+                  style={{ padding: "10px 12px", cursor: "pointer", borderBottom: `1px solid ${colors.border}`, fontSize: "14px" }}>
+                  <strong>{p.title}</strong> — {v.title} <span style={{ color: colors.brand, fontWeight: 600 }}>${v.price}</span>
                 </div>
               )))}
             </div>
           )}
         </div>
-        {error && <p style={{ color: "red", fontWeight: "bold" }}>{error}</p>}
-        {success && <p style={{ color: "green", fontWeight: "bold", fontSize: "1.2rem" }}>{success}</p>}
+
+        {error && <div style={{ background: colors.dangerSurface, color: colors.danger, padding: "10px 14px", borderRadius: radius.sm, fontSize: "14px", marginBottom: spacing.md }}>{error}</div>}
+        {success && <div style={{ background: colors.successSurface, color: colors.success, padding: "10px 14px", borderRadius: radius.sm, fontSize: "16px", fontWeight: 600 }}>{success}</div>}
       </div>
-      <div style={{ width: 400, padding: "1rem", display: "flex", flexDirection: "column" }}>
-        <h3>Current Sale</h3>
+
+      {/* Right: Current Sale */}
+      <div style={{ width: 420, padding: spacing.lg, display: "flex", flexDirection: "column", background: colors.surfaceMuted }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: spacing.md }}>
+          <h3 style={{ margin: 0 }}>Current Sale</h3>
+          {saleItems.length > 0 && <Button variant="danger" size="sm" onClick={voidSale}>Void Sale</Button>}
+        </div>
+
         <div style={{ flex: 1, overflowY: "auto" }}>
-          {saleItems.length === 0 ? <p style={{ color: "#999" }}>No items scanned</p> : saleItems.map((item) => (
-            <div key={item.variant.id} style={{ display: "flex", justifyContent: "space-between", padding: "0.5rem 0", borderBottom: "1px solid #eee" }}>
-              <div><strong>{item.productTitle}</strong> - {item.variant.title}<br />${item.variant.price} x {item.quantity}</div>
-              <button onClick={() => removeItem(item.variant.id)} style={{ alignSelf: "center" }}>X</button>
+          {saleItems.length === 0 ? (
+            <div style={{ textAlign: "center", padding: spacing.xl, color: colors.textDisabled }}>No items scanned</div>
+          ) : saleItems.map((item) => (
+            <div key={item.variant.id} style={{
+              display: "flex", justifyContent: "space-between", alignItems: "center",
+              padding: "10px 12px", marginBottom: "6px",
+              background: colors.surface, borderRadius: radius.sm, border: `1px solid ${colors.border}`,
+            }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 600, fontSize: "14px" }}>{item.productTitle}</div>
+                <div style={{ color: colors.textSecondary, fontSize: "13px" }}>{item.variant.title} &middot; ${item.variant.price}</div>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                <Button variant="secondary" size="sm" onClick={() => updateQty(item.variant.id, item.quantity - 1)}>-</Button>
+                <input
+                  value={item.quantity}
+                  onChange={(e) => { const v = parseInt(e.target.value); if (!isNaN(v)) updateQty(item.variant.id, v); }}
+                  style={{ width: 40, textAlign: "center", padding: "4px", border: `1px solid ${colors.borderStrong}`, borderRadius: radius.sm, fontSize: "14px", fontWeight: 600 }}
+                />
+                <Button variant="secondary" size="sm" onClick={() => updateQty(item.variant.id, item.quantity + 1)}>+</Button>
+                <Button variant="ghost" size="sm" onClick={() => removeItem(item.variant.id)} style={{ color: colors.danger }}>&#10005;</Button>
+              </div>
             </div>
           ))}
         </div>
-        <div style={{ borderTop: "2px solid #333", paddingTop: "1rem" }}>
-          <p style={{ fontSize: "1.5rem", fontWeight: "bold" }}>Total: ${total.toFixed(2)}</p>
-          <button onClick={completeSale} disabled={saleItems.length === 0}
-            style={{ width: "100%", padding: "1rem", fontSize: "1.2rem", background: "#4CAF50", color: "white", border: "none", cursor: "pointer" }}>
+
+        <div style={{ borderTop: `2px solid ${colors.textPrimary}`, paddingTop: spacing.md }}>
+          <p style={{ fontSize: "28px", fontWeight: 700, textAlign: "right", margin: `0 0 ${spacing.md}` }}>${total.toFixed(2)}</p>
+          <Button variant="primary" size="lg" fullWidth disabled={saleItems.length === 0} onClick={completeSale}
+            style={{ background: "#1A7F37", padding: "14px", fontSize: "18px" }}>
             Complete Sale
-          </button>
+          </Button>
         </div>
       </div>
     </div>
