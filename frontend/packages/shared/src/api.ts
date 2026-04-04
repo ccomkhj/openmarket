@@ -72,6 +72,12 @@ export const api = {
     summary: (days?: number) =>
       request<import("./types").AnalyticsSummary>(`/analytics/summary${days ? `?days=${days}` : ""}`),
   },
+  taxRates: {
+    list: () => request<import("./types").TaxRate[]>("/tax-rates"),
+  },
+  shippingMethods: {
+    list: () => request<import("./types").ShippingMethod[]>("/shipping-methods"),
+  },
   customers: {
     list: () => request<import("./types").Customer[]>("/customers"),
     get: (id: number) => request<import("./types").Customer>(`/customers/${id}`),

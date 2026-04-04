@@ -162,3 +162,11 @@ export interface AnalyticsSummary {
   top_products: TopProduct[];
   orders_by_source: Record<string, number>;
 }
+
+export interface TaxRate {
+  id: number; name: string; rate: string; region: string; is_default: boolean;
+}
+
+export interface ShippingMethod {
+  id: number; name: string; price: string; min_order_amount: string; is_active: boolean;
+}
