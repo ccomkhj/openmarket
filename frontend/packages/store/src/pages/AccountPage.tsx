@@ -1,8 +1,9 @@
 import { useState } from "react";
+import type { CSSProperties } from "react";
 import { api, Button, Spinner, colors, baseStyles, spacing, radius } from "@openmarket/shared";
 import type { Customer, OrderListItem } from "@openmarket/shared";
 
-function fulfillmentBadgeStyle(status: string): React.CSSProperties {
+function fulfillmentBadgeStyle(status: string): CSSProperties {
   const fulfilled = status === "fulfilled";
   const pending = status === "pending";
   return {
