@@ -1,5 +1,22 @@
-import { createContext, useContext, useState, ReactNode, useCallback } from "react";
+import { createContext, useContext, useState, ReactNode, useCallback, useEffect } from "react";
 import type { CartItem, Product, ProductVariant } from "@openmarket/shared";
+
+const CART_KEY = "openmarket_cart";
+
+function loadCart(): CartItem[] {
+  try {
+    const raw = localStorage.getItem(CART_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveCart(items: CartItem[]) {
+  try {
+    localStorage.setItem(CART_KEY, JSON.stringify(items));
+  } catch { /* quota exceeded - silently ignore */ }
+}
 
 interface CartContextType {
   items: CartItem[];
@@ -13,7 +30,9 @@ interface CartContextType {
 const CartContext = createContext<CartContextType | null>(null);
 
 export function CartProvider({ children }: { children: ReactNode }) {
-  const [items, setItems] = useState<CartItem[]>([]);
+  const [items, setItems] = useState<CartItem[]>(loadCart);
+
+  useEffect(() => { saveCart(items); }, [items]);
 
   const addItem = useCallback((product: Product, variant: ProductVariant) => {
     setItems((prev) => {
