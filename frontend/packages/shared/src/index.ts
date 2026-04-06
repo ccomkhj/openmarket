@@ -6,3 +6,4 @@ export { BarcodeScanner } from "./components/BarcodeScanner";
 export { OCRScanner } from "./components/OCRScanner";
 export { colors, spacing, radius, font, shadow, navHeight, baseStyles } from "./tokens";
 export type * from "./types";
+export { ToastProvider, useToast } from "./components/Toast";
