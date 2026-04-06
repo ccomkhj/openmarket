@@ -170,3 +170,17 @@ export interface TaxRate {
 export interface ShippingMethod {
   id: number; name: string; price: string; min_order_amount: string; is_active: boolean;
 }
+
+export interface Location {
+  id: number;
+  name: string;
+  address: string;
+}
+
+export interface DiscountCreate {
+  code: string;
+  discount_type: string;
+  value: string;
+  starts_at: string;
+  ends_at: string;
+}

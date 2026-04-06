@@ -12,14 +12,16 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   return response.json();
 }
 
+function qs(params: Record<string, unknown>): string {
+  const entries = Object.entries(params).filter(([, v]) => v != null && v !== "");
+  if (entries.length === 0) return "";
+  return "?" + new URLSearchParams(entries.map(([k, v]) => [k, String(v)])).toString();
+}
+
 export const api = {
   products: {
-    list: (params?: { status?: string; search?: string; product_type?: string }) => {
-      const qs = new URLSearchParams(
-        Object.fromEntries(Object.entries(params ?? {}).filter(([, v]) => v != null)) as Record<string, string>
-      ).toString();
-      return request<import("./types").ProductListWithPrice[]>(`/products${qs ? `?${qs}` : ""}`);
-    },
+    list: (params?: { status?: string; search?: string; product_type?: string; sort_by?: string; limit?: number; offset?: number }) =>
+      request<import("./types").ProductListWithPrice[]>(`/products${qs(params ?? {})}`),
     get: (id: number) => request<import("./types").Product>(`/products/${id}`),
     create: (data: Record<string, unknown>) =>
       request<import("./types").Product>("/products", { method: "POST", body: JSON.stringify(data) }),
@@ -45,13 +47,12 @@ export const api = {
     adjust: (data: { inventory_item_id: number; location_id: number; available_adjustment: number }) =>
       request<import("./types").InventoryLevel>("/inventory-levels/adjust", { method: "POST", body: JSON.stringify(data) }),
   },
+  locations: {
+    list: () => request<import("./types").Location[]>("/locations"),
+  },
   orders: {
-    list: (params?: { source?: string; fulfillment_status?: string }) => {
-      const qs = new URLSearchParams(
-        Object.fromEntries(Object.entries(params ?? {}).filter(([, v]) => v != null)) as Record<string, string>
-      ).toString();
-      return request<import("./types").OrderListItem[]>(`/orders${qs ? `?${qs}` : ""}`);
-    },
+    list: (params?: { source?: string; fulfillment_status?: string; search?: string; date_from?: string; date_to?: string; limit?: number; offset?: number }) =>
+      request<import("./types").OrderListItem[]>(`/orders${qs(params ?? {})}`),
     get: (id: number) => request<import("./types").Order>(`/orders/${id}`),
     lookup: (orderNumber: string) =>
       request<import("./types").Order>(`/orders/lookup?order_number=${encodeURIComponent(orderNumber)}`),
@@ -67,6 +68,12 @@ export const api = {
   discounts: {
     lookup: (code: string) =>
       request<import("./types").Discount>(`/discounts/lookup?code=${encodeURIComponent(code)}`, { method: "POST" }),
+    list: () => request<import("./types").Discount[]>("/discounts"),
+    create: (data: import("./types").DiscountCreate) =>
+      request<import("./types").Discount>("/discounts", { method: "POST", body: JSON.stringify(data) }),
+    update: (id: number, data: Record<string, unknown>) =>
+      request<import("./types").Discount>(`/discounts/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+    delete: (id: number) => request<{ ok: boolean }>(`/discounts/${id}`, { method: "DELETE" }),
   },
   analytics: {
     summary: (days?: number) =>
@@ -74,23 +81,24 @@ export const api = {
   },
   taxRates: {
     list: () => request<import("./types").TaxRate[]>("/tax-rates"),
+    create: (data: Record<string, unknown>) =>
+      request<import("./types").TaxRate>("/tax-rates", { method: "POST", body: JSON.stringify(data) }),
   },
   shippingMethods: {
     list: () => request<import("./types").ShippingMethod[]>("/shipping-methods"),
+    create: (data: Record<string, unknown>) =>
+      request<import("./types").ShippingMethod>("/shipping-methods", { method: "POST", body: JSON.stringify(data) }),
   },
   customers: {
-    list: () => request<import("./types").Customer[]>("/customers"),
+    list: (params?: { search?: string; limit?: number; offset?: number }) =>
+      request<import("./types").Customer[]>(`/customers${qs(params ?? {})}`),
     get: (id: number) => request<import("./types").Customer>(`/customers/${id}`),
     create: (data: Record<string, unknown>) =>
       request<import("./types").Customer>("/customers", { method: "POST", body: JSON.stringify(data) }),
     update: (id: number, data: Record<string, unknown>) =>
       request<import("./types").Customer>(`/customers/${id}`, { method: "PUT", body: JSON.stringify(data) }),
-    lookup: (params: { email?: string; phone?: string }) => {
-      const qs = new URLSearchParams(
-        Object.fromEntries(Object.entries(params).filter(([, v]) => v != null)) as Record<string, string>
-      ).toString();
-      return request<import("./types").Customer>(`/customers/lookup?${qs}`);
-    },
+    lookup: (params: { email?: string; phone?: string }) =>
+      request<import("./types").Customer>(`/customers/lookup${qs(params)}`),
     orders: (id: number) =>
       request<import("./types").OrderListItem[]>(`/customers/${id}/orders`),
   },
