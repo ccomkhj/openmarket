@@ -8,14 +8,12 @@ interface BarcodeScannerProps {
   onClose: () => void;
 }
 
-let idCounter = 0;
-
 export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
   const [error, setError] = useState("");
   const [status, setStatus] = useState("Requesting camera access...");
   const onDetectedRef = useRef(onDetected);
   onDetectedRef.current = onDetected;
-  const [containerId] = useState(() => `barcode-scanner-${++idCounter}`);
+  const [containerId] = useState(() => `barcode-scanner-${Date.now()}-${Math.random().toString(36).slice(2)}`);
 
   useEffect(() => {
     let stopped = false;

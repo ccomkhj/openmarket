@@ -15,13 +15,13 @@ interface ToastContextType {
 
 const ToastContext = createContext<ToastContextType | null>(null);
 
-let nextId = 0;
+const nextId = { current: 0 };
 
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
 
   const addToast = useCallback((message: string, type: ToastType = "success") => {
-    const id = nextId++;
+    const id = nextId.current++;
     setToasts((prev) => [...prev, { id, message, type }]);
   }, []);
 
