@@ -1,38 +1,57 @@
 import { useEffect, useState, useCallback } from "react";
-import { api, useWebSocket, Spinner, Button, colors, baseStyles, spacing, radius, shadow } from "@openmarket/shared";
+import { api, useWebSocket, useDebounce, Spinner, Button, colors, baseStyles, spacing, radius, shadow } from "@openmarket/shared";
 import type { Product, ProductListWithPrice } from "@openmarket/shared";
 import { useCart } from "../store/cartStore";
+
+const SORT_OPTIONS = [
+  { value: "", label: "Default" },
+  { value: "title", label: "Name A-Z" },
+  { value: "price_asc", label: "Price: Low to High" },
+  { value: "price_desc", label: "Price: High to Low" },
+  { value: "newest", label: "Newest" },
+];
 
 export function ShopPage() {
   const [products, setProducts] = useState<ProductListWithPrice[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [search, setSearch] = useState("");
+  const [sortBy, setSortBy] = useState("");
   const [selectedType, setSelectedType] = useState<string | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const { addItem } = useCart();
 
+  const debouncedSearch = useDebounce(search, 300);
   const productTypes = [...new Set(products.map((p) => p.product_type).filter(Boolean))].sort();
 
   useEffect(() => {
     setLoading(true);
+    setError("");
     api.products.list({
       status: "active",
-      search: search || undefined,
+      search: debouncedSearch || undefined,
       product_type: selectedType || undefined,
+      sort_by: sortBy || undefined,
     })
       .then(setProducts)
+      .catch(() => setError("Failed to load products. Please try again."))
       .finally(() => setLoading(false));
-  }, [search, selectedType]);
+  }, [debouncedSearch, selectedType, sortBy]);
 
   const handleInventoryUpdate = useCallback(() => {}, []);
   useWebSocket(handleInventoryUpdate);
 
   const openProduct = async (id: number) => {
     setDetailLoading(true);
-    const product = await api.products.get(id);
-    setSelectedProduct(product);
-    setDetailLoading(false);
+    try {
+      const product = await api.products.get(id);
+      setSelectedProduct(product);
+    } catch {
+      setError("Failed to load product details.");
+    } finally {
+      setDetailLoading(false);
+    }
   };
 
   return (
@@ -60,8 +79,21 @@ export function ShopPage() {
 
       {/* Main */}
       <div style={{ flex: 1 }}>
-        <input type="text" placeholder="Search products..." value={search} onChange={(e) => setSearch(e.target.value)}
-          style={{ ...baseStyles.input, marginBottom: spacing.lg }} />
+        <div style={{ display: "flex", gap: spacing.sm, marginBottom: spacing.lg }}>
+          <input type="text" placeholder="Search products..." value={search} onChange={(e) => setSearch(e.target.value)}
+            style={{ ...baseStyles.input, flex: 1 }} />
+          <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}
+            style={{ ...baseStyles.input, width: "auto", minWidth: 160, cursor: "pointer" }}>
+            {SORT_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+        </div>
+
+        {error && (
+          <div style={{ background: colors.dangerSurface, color: colors.danger, padding: "10px 14px", borderRadius: radius.sm, fontSize: "14px", marginBottom: spacing.md }}>
+            {error}
+            <Button variant="ghost" size="sm" onClick={() => setError("")} style={{ marginLeft: spacing.sm }}>Dismiss</Button>
+          </div>
+        )}
 
         {loading ? (
           <Spinner label="Loading products..." />
@@ -78,7 +110,7 @@ export function ShopPage() {
                 onMouseEnter={(e) => { e.currentTarget.style.boxShadow = shadow.md; e.currentTarget.style.borderColor = colors.borderStrong; }}
                 onMouseLeave={(e) => { e.currentTarget.style.boxShadow = "none"; e.currentTarget.style.borderColor = colors.border; }}>
                 {p.image_url ? (
-                  <img src={p.image_url} alt={p.title} style={{ width: "100%", height: "160px", objectFit: "cover", display: "block" }} />
+                  <img src={p.image_url} alt={p.title} loading="lazy" style={{ width: "100%", height: "160px", objectFit: "cover", display: "block" }} />
                 ) : (
                   <div style={{ width: "100%", height: "160px", background: colors.surfaceMuted, display: "flex", alignItems: "center", justifyContent: "center", color: colors.textSecondary, fontSize: "13px" }}>No image</div>
                 )}
