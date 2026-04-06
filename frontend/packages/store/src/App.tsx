@@ -4,7 +4,7 @@ import { CartCheckoutPage } from "./pages/CartCheckoutPage";
 import { OrderStatusPage } from "./pages/OrderStatusPage";
 import { AccountPage } from "./pages/AccountPage";
 import { CartProvider, useCart } from "./store/cartStore";
-import { baseStyles, colors } from "@openmarket/shared";
+import { baseStyles, colors, ToastProvider } from "@openmarket/shared";
 
 function NavBar() {
   const { items } = useCart();
@@ -34,16 +34,18 @@ function NavBar() {
 
 export function App() {
   return (
-    <CartProvider>
-      <div style={baseStyles.page}>
-        <NavBar />
-        <Routes>
-          <Route path="/" element={<ShopPage />} />
-          <Route path="/cart" element={<CartCheckoutPage />} />
-          <Route path="/order-status" element={<OrderStatusPage />} />
-          <Route path="/account" element={<AccountPage />} />
-        </Routes>
-      </div>
-    </CartProvider>
+    <ToastProvider>
+      <CartProvider>
+        <div style={baseStyles.page}>
+          <NavBar />
+          <Routes>
+            <Route path="/" element={<ShopPage />} />
+            <Route path="/cart" element={<CartCheckoutPage />} />
+            <Route path="/order-status" element={<OrderStatusPage />} />
+            <Route path="/account" element={<AccountPage />} />
+          </Routes>
+        </div>
+      </CartProvider>
+    </ToastProvider>
   );
 }
