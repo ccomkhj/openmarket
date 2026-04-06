@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { api, useWebSocket, Button, colors, baseStyles, spacing, radius, BarcodeScanner } from "@openmarket/shared";
+import { api, useWebSocket, useToast, Button, ConfirmDialog, colors, baseStyles, spacing, radius, BarcodeScanner } from "@openmarket/shared";
 import type { ProductVariant } from "@openmarket/shared";
 import { Receipt } from "../components/Receipt";
 import type { ReceiptItem } from "../components/Receipt";
@@ -18,11 +18,41 @@ export function SalePage() {
   const barcodeRef = useRef<HTMLInputElement>(null);
   const [showCameraScanner, setShowCameraScanner] = useState(false);
   const [showReturn, setShowReturn] = useState(false);
+  const { toast } = useToast();
+  const [confirmVoid, setConfirmVoid] = useState(false);
 
   useEffect(() => { barcodeRef.current?.focus(); }, []);
 
   const handleInventoryUpdate = useCallback(() => {}, []);
   useWebSocket(handleInventoryUpdate);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        if (receiptData) { setReceiptData(null); barcodeRef.current?.focus(); }
+        else if (error) { setError(""); }
+        else if (showReturn) { setShowReturn(false); }
+        return;
+      }
+      if (e.key === "F8" && saleItems.length > 0 && !receiptData) {
+        e.preventDefault();
+        completeSale();
+        return;
+      }
+      if (e.key === "F4" && saleItems.length > 0) {
+        e.preventDefault();
+        setConfirmVoid(true);
+        return;
+      }
+      if (e.key === "F9") {
+        e.preventDefault();
+        setShowReturn(true);
+        return;
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [saleItems.length, receiptData, error, showReturn]);
 
   const addByBarcode = async (barcode: string) => {
     setError("");
@@ -63,7 +93,8 @@ export function SalePage() {
   const removeItem = (variantId: number) => setSaleItems((prev) => prev.filter((i) => i.variant.id !== variantId));
   const total = saleItems.reduce((sum, item) => sum + parseFloat(item.variant.price) * item.quantity, 0);
 
-  const voidSale = () => { if (confirm("Void this sale? All items will be cleared.")) { setSaleItems([]); barcodeRef.current?.focus(); } };
+  const voidSale = () => setConfirmVoid(true);
+  const doVoidSale = () => { setSaleItems([]); setConfirmVoid(false); toast("Sale voided"); barcodeRef.current?.focus(); };
 
   const completeSale = async () => {
     setError("");
@@ -78,7 +109,8 @@ export function SalePage() {
       const receiptTotal = saleItems.reduce((sum, i) => sum + parseFloat(i.variant.price) * i.quantity, 0);
       setSaleItems([]);
       setReceiptData({ orderNumber: String(order.order_number), items: receiptItems, total: receiptTotal });
-    } catch (e: any) { setError(e.message); }
+      toast("Sale completed");
+    } catch (e: any) { setError(e.message); toast("Sale failed", "error"); }
   };
 
   const handleBarcodeKeyDown = (e: React.KeyboardEvent) => { if (e.key === "Enter" && barcodeInput.trim()) addByBarcode(barcodeInput.trim()); };
@@ -89,7 +121,7 @@ export function SalePage() {
       <div style={{ flex: 1, padding: spacing.lg, borderRight: `1px solid ${colors.border}`, background: colors.surface, display: "flex", flexDirection: "column" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: spacing.lg }}>
           <h2 style={{ margin: 0, color: colors.brand }}>POS</h2>
-          <Button variant="secondary" size="sm" onClick={() => setShowReturn(true)}>Returns</Button>
+          <Button variant="secondary" size="sm" onClick={() => setShowReturn(true)}>Returns (F9)</Button>
         </div>
 
         <div style={{ marginBottom: spacing.lg }}>
@@ -122,7 +154,7 @@ export function SalePage() {
       <div style={{ width: 420, padding: spacing.lg, display: "flex", flexDirection: "column", background: colors.surfaceMuted }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: spacing.md }}>
           <h3 style={{ margin: 0 }}>Current Sale</h3>
-          {saleItems.length > 0 && <Button variant="danger" size="sm" onClick={voidSale}>Void Sale</Button>}
+          {saleItems.length > 0 && <Button variant="danger" size="sm" onClick={voidSale}>Void (F4)</Button>}
         </div>
 
         <div style={{ flex: 1, overflowY: "auto" }}>
@@ -156,7 +188,7 @@ export function SalePage() {
           <p style={{ fontSize: "28px", fontWeight: 700, textAlign: "right", margin: `0 0 ${spacing.md}` }}>${total.toFixed(2)}</p>
           <Button variant="primary" size="lg" fullWidth disabled={saleItems.length === 0} onClick={completeSale}
             style={{ background: "#1A7F37", padding: "14px", fontSize: "18px" }}>
-            Complete Sale
+            Complete Sale (F8)
           </Button>
         </div>
       </div>
@@ -175,6 +207,16 @@ export function SalePage() {
         />
       )}
       {showReturn && <ReturnModal onClose={() => setShowReturn(false)} />}
+      {confirmVoid && (
+        <ConfirmDialog
+          title="Void Sale"
+          message="All items will be cleared from the current sale. This cannot be undone."
+          confirmLabel="Void Sale"
+          variant="danger"
+          onConfirm={doVoidSale}
+          onCancel={() => setConfirmVoid(false)}
+        />
+      )}
     </div>
   );
 }
