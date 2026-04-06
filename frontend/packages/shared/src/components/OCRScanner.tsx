@@ -1,8 +1,8 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Tesseract from "tesseract.js";
 import { Button } from "./Button";
 import { Spinner } from "./Spinner";
-import { colors, radius, spacing, baseStyles } from "../tokens";
+import { colors, radius, spacing } from "../tokens";
 
 interface OCRScannerProps {
   onDetected: (text: string) => void;
@@ -14,18 +14,17 @@ export function OCRScanner({ onDetected, onClose, label = "Scan Text" }: OCRScan
   const [processing, setProcessing] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
   const [results, setResults] = useState<string[]>([]);
+  const [error, setError] = useState("");
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const [cameraActive, setCameraActive] = useState(false);
 
   const startCamera = async () => {
+    setError("");
     try {
-      // Try rear camera first (mobile), fall back to any camera (desktop/Mac)
       let stream: MediaStream;
       try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "environment" },
-        });
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
       } catch {
         stream = await navigator.mediaDevices.getUserMedia({ video: true });
       }
@@ -36,9 +35,17 @@ export function OCRScanner({ onDetected, onClose, label = "Scan Text" }: OCRScan
       }
       setCameraActive(true);
     } catch {
-      // Camera not available, fall back to file input
+      setError("Could not access camera. Check browser permissions and System Settings > Privacy > Camera.");
     }
   };
+
+  // Auto-start camera on mount
+  useEffect(() => {
+    startCamera();
+    return () => {
+      streamRef.current?.getTracks().forEach((t) => t.stop());
+    };
+  }, []);
 
   const stopCamera = () => {
     streamRef.current?.getTracks().forEach((t) => t.stop());
@@ -50,7 +57,6 @@ export function OCRScanner({ onDetected, onClose, label = "Scan Text" }: OCRScan
     let imageSource: string;
 
     if (cameraActive && videoRef.current) {
-      // Capture frame from video
       const canvas = document.createElement("canvas");
       canvas.width = videoRef.current.videoWidth;
       canvas.height = videoRef.current.videoHeight;
@@ -72,6 +78,7 @@ export function OCRScanner({ onDetected, onClose, label = "Scan Text" }: OCRScan
         .filter((l) => l.length > 2);
       setResults(lines);
     } catch (err) {
+      setError("OCR failed. Try again with better lighting.");
       console.error("OCR failed:", err);
     } finally {
       setProcessing(false);
@@ -81,6 +88,7 @@ export function OCRScanner({ onDetected, onClose, label = "Scan Text" }: OCRScan
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    stopCamera();
     const url = URL.createObjectURL(file);
     setPreview(url);
     setProcessing(true);
@@ -92,6 +100,7 @@ export function OCRScanner({ onDetected, onClose, label = "Scan Text" }: OCRScan
         .filter((l) => l.length > 2);
       setResults(lines);
     } catch (err) {
+      setError("OCR failed. Try again.");
       console.error("OCR failed:", err);
     } finally {
       setProcessing(false);
@@ -116,30 +125,49 @@ export function OCRScanner({ onDetected, onClose, label = "Scan Text" }: OCRScan
       }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: spacing.md }}>
           <h3 style={{ margin: 0, fontSize: "16px" }}>{label}</h3>
-          <Button variant="ghost" size="sm" onClick={handleClose}>✕</Button>
+          <Button variant="ghost" size="sm" onClick={handleClose}>&#10005;</Button>
         </div>
 
-        {!cameraActive && !preview && (
+        {error && (
+          <div style={{ background: colors.dangerSurface, color: colors.danger, padding: "8px 12px", borderRadius: radius.sm, fontSize: "14px", marginBottom: spacing.md }}>
+            {error}
+          </div>
+        )}
+
+        {/* Camera view - auto-started */}
+        {cameraActive && !preview && (
+          <div>
+            <video ref={videoRef} style={{ width: "100%", minHeight: 250, borderRadius: radius.sm, background: "#000" }} autoPlay playsInline muted />
+            <div style={{ display: "flex", gap: spacing.sm, marginTop: spacing.sm }}>
+              <Button variant="primary" fullWidth onClick={captureAndOCR}>
+                Capture & Read Text
+              </Button>
+              <label style={{ display: "block", flex: 1 }}>
+                <input type="file" accept="image/*" onChange={handleFileUpload} style={{ display: "none" }} />
+                <Button variant="secondary" fullWidth onClick={() => {}} style={{ pointerEvents: "none" }}>
+                  Upload File
+                </Button>
+              </label>
+            </div>
+          </div>
+        )}
+
+        {/* Fallback when camera fails - show file upload */}
+        {!cameraActive && !preview && !processing && (
           <div style={{ display: "flex", flexDirection: "column", gap: spacing.sm }}>
-            <Button variant="primary" onClick={startCamera} fullWidth>Open Camera</Button>
-            <div style={{ textAlign: "center", color: colors.textSecondary, fontSize: "13px" }}>or</div>
+            <Button variant="secondary" onClick={startCamera} fullWidth>Try Camera Again</Button>
             <label style={{ display: "block" }}>
-              <input type="file" accept="image/*" capture="environment" onChange={handleFileUpload}
-                style={{ display: "none" }} />
+              <input type="file" accept="image/*" onChange={handleFileUpload} style={{ display: "none" }} />
               <Button variant="secondary" fullWidth onClick={() => {}} style={{ pointerEvents: "none" }}>
-                Upload Photo
+                Upload Photo Instead
               </Button>
             </label>
           </div>
         )}
 
-        {cameraActive && (
-          <div>
-            <video ref={videoRef} style={{ width: "100%", borderRadius: radius.sm }} autoPlay playsInline muted />
-            <Button variant="primary" fullWidth onClick={captureAndOCR} style={{ marginTop: spacing.sm }}>
-              Capture & Read Text
-            </Button>
-          </div>
+        {/* Hidden video element for when camera isn't active yet */}
+        {!cameraActive && !preview && (
+          <video ref={videoRef} style={{ display: "none" }} autoPlay playsInline muted />
         )}
 
         {processing && <Spinner label="Reading text..." />}
@@ -169,7 +197,7 @@ export function OCRScanner({ onDetected, onClose, label = "Scan Text" }: OCRScan
         {preview && !processing && results.length === 0 && (
           <div style={{ textAlign: "center", padding: spacing.lg, color: colors.textSecondary }}>
             <p>No text detected. Try again with better lighting.</p>
-            <Button variant="secondary" onClick={() => { setPreview(null); startCamera(); }}>Retry</Button>
+            <Button variant="secondary" onClick={() => { setPreview(null); setResults([]); startCamera(); }}>Retry</Button>
           </div>
         )}
       </div>
