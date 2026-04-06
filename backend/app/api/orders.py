@@ -33,6 +33,11 @@ async def create(body: OrderCreate, db: AsyncSession = Depends(get_db)):
 async def list_orders(
     source: str | None = None,
     fulfillment_status: str | None = None,
+    search: str | None = None,
+    date_from: str | None = None,
+    date_to: str | None = None,
+    limit: int | None = None,
+    offset: int = 0,
     db: AsyncSession = Depends(get_db),
 ):
     query = select(Order)
@@ -40,7 +45,16 @@ async def list_orders(
         query = query.where(Order.source == source)
     if fulfillment_status:
         query = query.where(Order.fulfillment_status == fulfillment_status)
-    result = await db.execute(query.order_by(Order.created_at.desc()))
+    if search:
+        query = query.where(Order.order_number.ilike(f"%{search}%"))
+    if date_from:
+        query = query.where(Order.created_at >= date_from)
+    if date_to:
+        query = query.where(Order.created_at <= date_to)
+    query = query.order_by(Order.created_at.desc()).offset(offset)
+    if limit is not None:
+        query = query.limit(limit)
+    result = await db.execute(query)
     return result.scalars().all()
 
 

@@ -40,6 +40,9 @@ async def list_products(
     status: str | None = None,
     search: str | None = None,
     product_type: str | None = None,
+    sort_by: str | None = None,
+    limit: int | None = None,
+    offset: int = 0,
     db: AsyncSession = Depends(get_db),
 ):
     query = (
@@ -57,7 +60,20 @@ async def list_products(
         query = query.where(Product.title.ilike(f"%{search}%"))
     if product_type:
         query = query.where(Product.product_type == product_type)
-    result = await db.execute(query.order_by(Product.id))
+    if sort_by == "title":
+        query = query.order_by(Product.title)
+    elif sort_by == "price_asc":
+        query = query.order_by(sqlfunc.min(ProductVariant.price).asc())
+    elif sort_by == "price_desc":
+        query = query.order_by(sqlfunc.min(ProductVariant.price).desc())
+    elif sort_by == "newest":
+        query = query.order_by(Product.id.desc())
+    else:
+        query = query.order_by(Product.id)
+    query = query.offset(offset)
+    if limit is not None:
+        query = query.limit(limit)
+    result = await db.execute(query)
     rows = result.all()
 
     # Load first image for each product

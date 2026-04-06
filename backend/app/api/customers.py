@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from sqlalchemy import select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -29,10 +29,26 @@ async def create_customer(body: CustomerCreate, db: AsyncSession = Depends(get_d
 
 
 @router.get("/customers", response_model=list[CustomerOut])
-async def list_customers(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(
-        select(Customer).options(selectinload(Customer.addresses)).order_by(Customer.id)
-    )
+async def list_customers(
+    search: str | None = None,
+    limit: int | None = None,
+    offset: int = 0,
+    db: AsyncSession = Depends(get_db),
+):
+    query = select(Customer).options(selectinload(Customer.addresses)).order_by(Customer.id)
+    if search:
+        query = query.where(
+            or_(
+                Customer.first_name.ilike(f"%{search}%"),
+                Customer.last_name.ilike(f"%{search}%"),
+                Customer.email.ilike(f"%{search}%"),
+                Customer.phone.ilike(f"%{search}%"),
+            )
+        )
+    query = query.offset(offset)
+    if limit is not None:
+        query = query.limit(limit)
+    result = await db.execute(query)
     return result.scalars().all()
 
 
