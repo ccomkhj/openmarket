@@ -19,27 +19,29 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
 
   useEffect(() => {
     let stopped = false;
+    let running = false;
     let scanner: Html5Qrcode | null = null;
 
-    // Small delay to ensure DOM element is painted
     const timer = setTimeout(async () => {
+      if (stopped) return;
       const el = document.getElementById(containerId);
-      if (!el || stopped) {
-        if (!stopped) setError("Scanner container not found.");
+      if (!el) {
+        setError("Scanner container not found.");
         return;
       }
 
       try {
         scanner = new Html5Qrcode(containerId);
-      } catch (err: any) {
-        if (!stopped) setError(`Scanner init failed: ${err?.message || "unknown"}`);
+      } catch {
+        setError("Failed to initialize scanner.");
         return;
       }
 
       const onSuccess = (decodedText: string) => {
         if (stopped) return;
         stopped = true;
-        scanner?.stop().catch(() => {});
+        if (running) scanner?.stop().catch(() => {});
+        running = false;
         onDetectedRef.current(decodedText);
       };
       const config = { fps: 10, qrbox: { width: 250, height: 150 } };
@@ -47,33 +49,34 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
       try {
         const cameras = await Html5Qrcode.getCameras();
         if (stopped) return;
-        if (cameras.length === 0) {
-          setError("No camera found on this device.");
-          return;
-        }
+        if (cameras.length === 0) { setError("No camera found."); return; }
         setStatus(`Found ${cameras.length} camera(s). Starting...`);
         const backCam = cameras.find((c) => /back|rear|environment/i.test(c.label));
         await scanner.start(backCam?.id ?? cameras[0].id, config, onSuccess, () => {});
+        running = true;
         if (!stopped) setStatus("");
       } catch {
         if (stopped) return;
         try {
-          setStatus("Trying alternative camera access...");
           await scanner.start({ facingMode: "user" }, config, onSuccess, () => {});
+          running = true;
           if (!stopped) setStatus("");
-        } catch (err2: any) {
+        } catch (err: any) {
           if (!stopped) {
-            setError(`Camera error: ${err2?.message || "Unknown"}. Check browser camera permissions.`);
+            setError(`Camera error: ${err?.message || "Unknown"}. Check browser permissions.`);
             setStatus("");
           }
         }
       }
-    }, 100);
+    }, 150);
 
     return () => {
       stopped = true;
       clearTimeout(timer);
-      scanner?.stop().catch(() => {});
+      if (running && scanner) {
+        scanner.stop().catch(() => {});
+        running = false;
+      }
     };
   }, [containerId]);
 
