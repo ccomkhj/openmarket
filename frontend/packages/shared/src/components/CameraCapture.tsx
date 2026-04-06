@@ -7,31 +7,43 @@ interface CameraCaptureProps {
   onClose: () => void;
 }
 
+async function getCamera(): Promise<MediaStream> {
+  // Try rear camera first (mobile), then any camera (desktop/Mac)
+  try {
+    return await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+  } catch {
+    return await navigator.mediaDevices.getUserMedia({ video: true });
+  }
+}
+
 export function CameraCapture({ onCapture, onClose }: CameraCaptureProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const [error, setError] = useState("");
+  const [ready, setReady] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
   const [blobRef, setBlobRef] = useState<Blob | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    navigator.mediaDevices
-      .getUserMedia({ video: { facingMode: "environment" } })
-      .catch(() => navigator.mediaDevices.getUserMedia({ video: true }))
-      .then((stream) => {
-        if (cancelled) { stream.getTracks().forEach((t) => t.stop()); return; }
-        streamRef.current = stream;
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          videoRef.current.play();
-        }
-      })
-      .catch(() => setError("Could not access camera. Please allow camera permissions."));
+  const startCamera = async () => {
+    setError("");
+    setReady(false);
+    try {
+      const stream = await getCamera();
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.onloadedmetadata = () => setReady(true);
+        videoRef.current.play();
+      }
+    } catch {
+      setError("Could not access camera. Check browser permissions and System Settings > Privacy > Camera.");
+    }
+  };
 
+  useEffect(() => {
+    startCamera();
     return () => {
-      cancelled = true;
       streamRef.current?.getTracks().forEach((t) => t.stop());
     };
   }, []);
@@ -60,17 +72,7 @@ export function CameraCapture({ onCapture, onClose }: CameraCaptureProps) {
   const retake = () => {
     setPreview(null);
     setBlobRef(null);
-    navigator.mediaDevices
-      .getUserMedia({ video: { facingMode: "environment" } })
-      .catch(() => navigator.mediaDevices.getUserMedia({ video: true }))
-      .then((stream) => {
-        streamRef.current = stream;
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          videoRef.current.play();
-        }
-      })
-      .catch(() => setError("Could not access camera."));
+    startCamera();
   };
 
   return (
@@ -108,9 +110,12 @@ export function CameraCapture({ onCapture, onClose }: CameraCaptureProps) {
               autoPlay
               playsInline
               muted
-              style={{ width: "100%", borderRadius: radius.sm, marginBottom: spacing.md, background: "#000" }}
+              style={{ width: "100%", minHeight: 250, borderRadius: radius.sm, marginBottom: spacing.md, background: "#000" }}
             />
-            <Button variant="primary" fullWidth onClick={capture}>Capture</Button>
+            {!ready && (
+              <p style={{ color: colors.textSecondary, fontSize: "13px", textAlign: "center" }}>Starting camera...</p>
+            )}
+            <Button variant="primary" fullWidth onClick={capture} disabled={!ready}>Capture</Button>
           </>
         )}
         <canvas ref={canvasRef} style={{ display: "none" }} />
