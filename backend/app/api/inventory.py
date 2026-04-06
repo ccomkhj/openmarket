@@ -3,11 +3,18 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_db
-from app.models.inventory import InventoryLevel
+from app.models.inventory import InventoryLevel, Location
 from app.schemas.inventory import InventoryLevelOut, InventorySet, InventoryAdjust
+from app.schemas.location import LocationOut
 from app.services.inventory import set_inventory, adjust_inventory
 
 router = APIRouter(prefix="/api", tags=["inventory"])
+
+
+@router.get("/locations", response_model=list[LocationOut])
+async def list_locations(db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Location).order_by(Location.id))
+    return result.scalars().all()
 
 
 @router.get("/inventory-levels", response_model=list[InventoryLevelOut])
