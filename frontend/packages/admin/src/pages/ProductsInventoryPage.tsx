@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
-import { api, useWebSocket, Button, Spinner, colors, baseStyles, spacing, radius, BarcodeScanner, OCRScanner } from "@openmarket/shared";
-import type { Product, ProductListWithPrice, InventoryLevel } from "@openmarket/shared";
+import { api, useWebSocket, useToast, useDebounce, Button, Spinner, ConfirmDialog, colors, baseStyles, spacing, radius, BarcodeScanner, OCRScanner } from "@openmarket/shared";
+import type { Product, ProductListWithPrice, InventoryLevel, Location } from "@openmarket/shared";
 
 export function ProductsInventoryPage() {
   const [products, setProducts] = useState<ProductListWithPrice[]>([]);
@@ -18,6 +18,10 @@ export function ProductsInventoryPage() {
   const [stockInputs, setStockInputs] = useState<Record<number, string>>({});
   const [showBarcodeScanner, setShowBarcodeScanner] = useState(false);
   const [showOCRScanner, setShowOCRScanner] = useState(false);
+  const { toast } = useToast();
+  const [locations, setLocations] = useState<Location[]>([]);
+  const [selectedLocationId, setSelectedLocationId] = useState<number>(1);
+  const debouncedSearch = useDebounce(search, 300);
 
   const loadProducts = async () => {
     setLoading(true);
@@ -27,13 +31,22 @@ export function ProductsInventoryPage() {
   };
 
   const loadInventory = async () => {
-    const levels = await api.inventory.levels(1);
+    const levels = await api.inventory.levels(selectedLocationId);
     const map: Record<number, InventoryLevel> = {};
     for (const l of levels) map[l.inventory_item_id] = l;
     setInventory(map);
   };
 
-  useEffect(() => { loadProducts(); loadInventory(); }, [search]);
+  useEffect(() => {
+    loadProducts();
+    loadInventory();
+    api.locations.list().then((locs) => {
+      setLocations(locs);
+      if (locs.length > 0) setSelectedLocationId(locs[0].id);
+    });
+  }, [debouncedSearch]);
+
+  useEffect(() => { loadInventory(); }, [selectedLocationId]);
 
   const handleInventoryUpdate = useCallback((update: { inventory_item_id: number; available: number; location_id: number }) => {
     setInventory((prev) => ({
@@ -50,27 +63,36 @@ export function ProductsInventoryPage() {
   };
 
   const adjustStock = async (inventoryItemId: number, delta: number) => {
-    await api.inventory.adjust({ inventory_item_id: inventoryItemId, location_id: 1, available_adjustment: delta });
-    await loadInventory();
+    try {
+      await api.inventory.adjust({ inventory_item_id: inventoryItemId, location_id: selectedLocationId, available_adjustment: delta });
+      await loadInventory();
+      toast(`Stock adjusted by ${delta > 0 ? "+" : ""}${delta}`);
+    } catch { toast("Failed to adjust stock", "error"); }
   };
 
   const setStock = async (inventoryItemId: number) => {
     const val = parseInt(stockInputs[inventoryItemId] || "");
     if (isNaN(val) || val < 0) return;
-    await api.inventory.set({ inventory_item_id: inventoryItemId, location_id: 1, available: val });
-    setStockInputs((p) => ({ ...p, [inventoryItemId]: "" }));
-    await loadInventory();
+    try {
+      await api.inventory.set({ inventory_item_id: inventoryItemId, location_id: selectedLocationId, available: val });
+      setStockInputs((p) => ({ ...p, [inventoryItemId]: "" }));
+      await loadInventory();
+      toast(`Stock set to ${val}`);
+    } catch { toast("Failed to set stock", "error"); }
   };
 
   const createProduct = async () => {
     if (!newTitle || !newHandle || !newPrice) return;
-    await api.products.create({
-      title: newTitle, handle: newHandle, product_type: newType,
-      variants: [{ title: "Default", price: newPrice, barcode: newBarcode }],
-    });
-    setNewTitle(""); setNewHandle(""); setNewType(""); setNewPrice(""); setNewBarcode("");
-    setShowCreate(false);
-    loadProducts(); loadInventory();
+    try {
+      await api.products.create({
+        title: newTitle, handle: newHandle, product_type: newType,
+        variants: [{ title: "Default", price: newPrice, barcode: newBarcode }],
+      });
+      setNewTitle(""); setNewHandle(""); setNewType(""); setNewPrice(""); setNewBarcode("");
+      setShowCreate(false);
+      loadProducts(); loadInventory();
+      toast("Product created");
+    } catch (e: any) { toast(e.message || "Failed to create product", "error"); }
   };
 
   return (
@@ -106,6 +128,15 @@ export function ProductsInventoryPage() {
         </div>
       )}
 
+      {locations.length > 1 && (
+        <div style={{ marginBottom: spacing.md }}>
+          <label style={{ fontSize: "13px", color: colors.textSecondary, marginRight: spacing.sm }}>Location:</label>
+          <select value={selectedLocationId} onChange={(e) => setSelectedLocationId(Number(e.target.value))}
+            style={{ ...baseStyles.input, width: "auto", display: "inline-block" }}>
+            {locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
+          </select>
+        </div>
+      )}
       <input placeholder="Search products..." value={search} onChange={(e) => setSearch(e.target.value)} style={{ ...baseStyles.input, marginBottom: spacing.lg }} />
 
       {loading ? <Spinner label="Loading products..." /> : (
