@@ -1,8 +1,19 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { api, Button, colors, baseStyles, spacing, radius } from "@openmarket/shared";
+import { api, Button, ConfirmDialog, colors, baseStyles, spacing, radius } from "@openmarket/shared";
 import type { ShippingMethod, TaxRate } from "@openmarket/shared";
 import { useCart } from "../store/cartStore";
+
+function validatePhone(phone: string): string | null {
+  const digits = phone.replace(/\D/g, "");
+  if (digits.length < 7) return "Phone number must be at least 7 digits";
+  return null;
+}
+
+function validateZip(zip: string): string | null {
+  if (zip.length < 3) return "ZIP code is too short";
+  return null;
+}
 
 export function CartCheckoutPage() {
   const { items, updateQuantity, removeItem, clearCart, total } = useCart();
@@ -15,11 +26,13 @@ export function CartCheckoutPage() {
   const [discountCode, setDiscountCode] = useState("");
   const [discount, setDiscount] = useState<{ type: string; value: number } | null>(null);
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [orderNumber, setOrderNumber] = useState("");
   const [shippingMethods, setShippingMethods] = useState<ShippingMethod[]>([]);
   const [selectedShipping, setSelectedShipping] = useState<number | null>(null);
   const [taxRates, setTaxRates] = useState<TaxRate[]>([]);
+  const [confirmRemove, setConfirmRemove] = useState<number | null>(null);
 
   useEffect(() => {
     api.shippingMethods.list().then((methods) => {
@@ -53,10 +66,23 @@ export function CartCheckoutPage() {
 
   const finalTotal = subtotalAfterDiscount + taxAmount + shippingCost;
 
+  const validateForm = (): boolean => {
+    const errors: Record<string, string> = {};
+    if (!name.trim()) errors.name = "Name is required";
+    const phoneErr = validatePhone(phone);
+    if (phoneErr) errors.phone = phoneErr;
+    if (!address.trim()) errors.address = "Address is required";
+    if (!city.trim()) errors.city = "City is required";
+    const zipErr = validateZip(zip);
+    if (zipErr) errors.zip = zipErr;
+    setFieldErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   const canSubmit = name && phone && address && city && zip && items.length > 0 && !submitting;
 
   const placeOrder = async () => {
-    if (!canSubmit) return;
+    if (!validateForm() || !canSubmit) return;
     setSubmitting(true);
     setError("");
     try {
@@ -71,6 +97,11 @@ export function CartCheckoutPage() {
     } catch (e: any) { setError(e.message || "Failed to place order"); }
     finally { setSubmitting(false); }
   };
+
+  const fieldInputStyle = (field: string) => ({
+    ...baseStyles.input,
+    borderColor: fieldErrors[field] ? colors.danger : undefined,
+  });
 
   if (orderNumber) {
     return (
@@ -118,7 +149,7 @@ export function CartCheckoutPage() {
                   <Button variant="secondary" size="sm" onClick={() => updateQuantity(item.variant.id, item.quantity - 1)}>-</Button>
                   <span style={{ width: 28, textAlign: "center", fontWeight: 600 }}>{item.quantity}</span>
                   <Button variant="secondary" size="sm" onClick={() => updateQuantity(item.variant.id, item.quantity + 1)}>+</Button>
-                  <Button variant="danger" size="sm" onClick={() => removeItem(item.variant.id)}>Remove</Button>
+                  <Button variant="danger" size="sm" onClick={() => setConfirmRemove(item.variant.id)}>Remove</Button>
                 </div>
               </div>
             ))}
@@ -144,14 +175,8 @@ export function CartCheckoutPage() {
                   const isFree = subtotalAfterDiscount >= parseFloat(method.min_order_amount);
                   return (
                     <label key={method.id} style={{ display: "flex", alignItems: "flex-start", gap: "10px", cursor: "pointer" }}>
-                      <input
-                        type="radio"
-                        name="shippingMethod"
-                        value={method.id}
-                        checked={selectedShipping === method.id}
-                        onChange={() => setSelectedShipping(method.id)}
-                        style={{ marginTop: "2px" }}
-                      />
+                      <input type="radio" name="shippingMethod" value={method.id} checked={selectedShipping === method.id}
+                        onChange={() => setSelectedShipping(method.id)} style={{ marginTop: "2px" }} />
                       <div>
                         <div style={{ fontWeight: 600, fontSize: "14px" }}>
                           {method.name} &mdash; {isFree ? <span style={{ color: colors.success }}>Free</span> : `$${parseFloat(method.price).toFixed(2)}`}
@@ -195,12 +220,27 @@ export function CartCheckoutPage() {
           <div style={baseStyles.card}>
             <h3 style={{ margin: "0 0 16px", fontSize: "16px" }}>Delivery Details</h3>
             <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-              <input placeholder="Full name *" value={name} onChange={(e) => setName(e.target.value)} style={baseStyles.input} />
-              <input placeholder="Phone *" value={phone} onChange={(e) => setPhone(e.target.value)} style={baseStyles.input} />
-              <input placeholder="Address *" value={address} onChange={(e) => setAddress(e.target.value)} style={baseStyles.input} />
+              <div>
+                <input placeholder="Full name *" value={name} onChange={(e) => { setName(e.target.value); setFieldErrors((p) => ({ ...p, name: "" })); }} style={fieldInputStyle("name")} />
+                {fieldErrors.name && <div style={{ color: colors.danger, fontSize: "12px", marginTop: "4px" }}>{fieldErrors.name}</div>}
+              </div>
+              <div>
+                <input placeholder="Phone * (e.g. 010-1234-5678)" value={phone} onChange={(e) => { setPhone(e.target.value); setFieldErrors((p) => ({ ...p, phone: "" })); }} style={fieldInputStyle("phone")} />
+                {fieldErrors.phone && <div style={{ color: colors.danger, fontSize: "12px", marginTop: "4px" }}>{fieldErrors.phone}</div>}
+              </div>
+              <div>
+                <input placeholder="Address *" value={address} onChange={(e) => { setAddress(e.target.value); setFieldErrors((p) => ({ ...p, address: "" })); }} style={fieldInputStyle("address")} />
+                {fieldErrors.address && <div style={{ color: colors.danger, fontSize: "12px", marginTop: "4px" }}>{fieldErrors.address}</div>}
+              </div>
               <div style={{ display: "flex", gap: "10px" }}>
-                <input placeholder="City *" value={city} onChange={(e) => setCity(e.target.value)} style={baseStyles.input} />
-                <input placeholder="ZIP *" value={zip} onChange={(e) => setZip(e.target.value)} style={{ ...baseStyles.input, maxWidth: 120 }} />
+                <div style={{ flex: 1 }}>
+                  <input placeholder="City *" value={city} onChange={(e) => { setCity(e.target.value); setFieldErrors((p) => ({ ...p, city: "" })); }} style={fieldInputStyle("city")} />
+                  {fieldErrors.city && <div style={{ color: colors.danger, fontSize: "12px", marginTop: "4px" }}>{fieldErrors.city}</div>}
+                </div>
+                <div style={{ width: 120 }}>
+                  <input placeholder="ZIP *" value={zip} onChange={(e) => { setZip(e.target.value); setFieldErrors((p) => ({ ...p, zip: "" })); }} style={fieldInputStyle("zip")} />
+                  {fieldErrors.zip && <div style={{ color: colors.danger, fontSize: "12px", marginTop: "4px" }}>{fieldErrors.zip}</div>}
+                </div>
               </div>
             </div>
             <p style={{ color: colors.textSecondary, fontSize: "13px", margin: "12px 0 4px" }}>Payment will be collected on delivery.</p>
@@ -210,6 +250,17 @@ export function CartCheckoutPage() {
             </Button>
           </div>
         </>
+      )}
+
+      {confirmRemove !== null && (
+        <ConfirmDialog
+          title="Remove item"
+          message="Are you sure you want to remove this item from your cart?"
+          confirmLabel="Remove"
+          variant="danger"
+          onConfirm={() => { removeItem(confirmRemove); setConfirmRemove(null); }}
+          onCancel={() => setConfirmRemove(null)}
+        />
       )}
     </div>
   );
