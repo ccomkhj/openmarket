@@ -1,7 +1,12 @@
-from fastapi import APIRouter, Depends, HTTPException
+import uuid
+from pathlib import Path
+
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy import select, func as sqlfunc
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
+
+from app.config import settings
 
 from app.api.deps import get_db
 from app.models.product import Product, ProductVariant, ProductImage
@@ -9,7 +14,7 @@ from app.models.inventory import InventoryItem
 from app.schemas.product import (
     ProductCreate, ProductUpdate, ProductOut, ProductListOut,
     VariantCreate, VariantUpdate, VariantOut,
-    ProductListWithPriceOut, VariantLookupOut,
+    ProductListWithPriceOut, VariantLookupOut, ProductImageOut,
 )
 
 router = APIRouter(prefix="/api", tags=["products"])
@@ -207,3 +212,35 @@ async def delete_variant(variant_id: int, db: AsyncSession = Depends(get_db)):
     await db.delete(variant)
     await db.commit()
     return {"ok": True}
+
+
+@router.post("/products/{product_id}/images", response_model=ProductImageOut, status_code=201)
+async def upload_product_image(
+    product_id: int,
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(select(Product).where(Product.id == product_id))
+    product = result.scalar_one_or_none()
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+
+    ext = Path(file.filename or "image.jpg").suffix or ".jpg"
+    filename = f"{uuid.uuid4().hex}{ext}"
+    upload_dir = Path(settings.upload_dir)
+    upload_dir.mkdir(exist_ok=True)
+    filepath = upload_dir / filename
+
+    content = await file.read()
+    filepath.write_bytes(content)
+
+    count_result = await db.execute(
+        select(sqlfunc.count()).select_from(ProductImage).where(ProductImage.product_id == product_id)
+    )
+    position = count_result.scalar() or 0
+
+    image = ProductImage(product_id=product_id, src=f"/api/uploads/{filename}", position=position)
+    db.add(image)
+    await db.commit()
+    await db.refresh(image)
+    return image

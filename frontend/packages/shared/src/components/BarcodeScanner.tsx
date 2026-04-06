@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { Html5Qrcode } from "html5-qrcode";
 import { Button } from "./Button";
 import { colors, radius, spacing } from "../tokens";
@@ -11,6 +11,8 @@ interface BarcodeScannerProps {
 export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
   const [error, setError] = useState("");
   const scannerRef = useRef<Html5Qrcode | null>(null);
+  const onDetectedRef = useRef(onDetected);
+  onDetectedRef.current = onDetected;
   const containerId = "barcode-scanner-container";
 
   useEffect(() => {
@@ -19,7 +21,7 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
 
     const onSuccess = (decodedText: string) => {
       scanner.stop().catch(() => {});
-      onDetected(decodedText);
+      onDetectedRef.current(decodedText);
     };
     const config = { fps: 10, qrbox: { width: 250, height: 150 } };
 
@@ -37,7 +39,7 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
     return () => {
       scanner.stop().catch(() => {});
     };
-  }, [onDetected]);
+  }, []);
 
   return (
     <div style={{

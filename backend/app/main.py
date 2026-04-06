@@ -2,12 +2,16 @@ import logging
 import time
 from contextlib import asynccontextmanager
 
+from pathlib import Path
+
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 
 from app.database import engine, Base
+from app.config import settings
 from app.api.products import router as products_router
 from app.api.collections import router as collections_router
 from app.api.inventory import router as inventory_router
@@ -70,6 +74,11 @@ app.include_router(discounts_router)
 app.include_router(analytics_router)
 app.include_router(tax_shipping_router)
 app.include_router(returns_router)
+
+
+upload_path = Path(settings.upload_dir)
+upload_path.mkdir(exist_ok=True)
+app.mount("/api/uploads", StaticFiles(directory=str(upload_path)), name="uploads")
 
 
 @app.get("/api/health")

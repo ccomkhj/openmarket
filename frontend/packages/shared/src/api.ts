@@ -29,6 +29,16 @@ export const api = {
       request<import("./types").Product>(`/products/${id}`, { method: "PUT", body: JSON.stringify(data) }),
     archive: (id: number) =>
       request<import("./types").Product>(`/products/${id}`, { method: "DELETE" }),
+    uploadImage: async (productId: number, file: Blob, filename?: string) => {
+      const form = new FormData();
+      form.append("file", file, filename || "photo.jpg");
+      const response = await fetch(`${API_BASE}/products/${productId}/images`, { method: "POST", body: form });
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: "Upload failed" }));
+        throw new Error(error.detail || `HTTP ${response.status}`);
+      }
+      return response.json() as Promise<import("./types").ProductImage>;
+    },
   },
   variants: {
     lookup: (barcode: string) =>

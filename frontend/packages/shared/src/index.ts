@@ -3,6 +3,7 @@ export { useWebSocket } from "./useWebSocket";
 export { Button } from "./components/Button";
 export { Spinner } from "./components/Spinner";
 export { BarcodeScanner } from "./components/BarcodeScanner";
+export { CameraCapture } from "./components/CameraCapture";
 export { OCRScanner } from "./components/OCRScanner";
 export { colors, spacing, radius, font, shadow, navHeight, baseStyles } from "./tokens";
 export type * from "./types";
