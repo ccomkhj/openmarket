@@ -1,20 +1,27 @@
 import { useEffect, useState } from "react";
-import { api, Button, Spinner, colors, baseStyles, spacing, radius } from "@openmarket/shared";
+import { api, useDebounce, exportCsv, Button, Spinner, colors, baseStyles, spacing, radius } from "@openmarket/shared";
 import type { Order, OrderListItem } from "@openmarket/shared";
 
 export function OrdersPage() {
   const [orders, setOrders] = useState<OrderListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<"unfulfilled" | "fulfilled">("unfulfilled");
+  const [search, setSearch] = useState("");
+  const [sourceFilter, setSourceFilter] = useState<string>("");
+  const debouncedSearch = useDebounce(search, 300);
   const [expandedOrder, setExpandedOrder] = useState<Order | null>(null);
 
   const loadOrders = async () => {
     setLoading(true);
-    setOrders(await api.orders.list({ fulfillment_status: tab }));
+    setOrders(await api.orders.list({
+      fulfillment_status: tab,
+      search: debouncedSearch || undefined,
+      source: sourceFilter || undefined,
+    }));
     setLoading(false);
   };
 
-  useEffect(() => { loadOrders(); }, [tab]);
+  useEffect(() => { loadOrders(); }, [tab, debouncedSearch, sourceFilter]);
 
   const expandOrder = async (id: number) => {
     if (expandedOrder?.id === id) { setExpandedOrder(null); return; }
@@ -27,10 +34,16 @@ export function OrdersPage() {
     setExpandedOrder(null);
   };
 
+  const handleExport = () => {
+    exportCsv(
+      `orders-${tab}-${new Date().toISOString().slice(0, 10)}.csv`,
+      ["Order #", "Source", "Total", "Date", "Status"],
+      orders.map((o) => [o.order_number, o.source, `$${o.total_price}`, new Date(o.created_at).toLocaleDateString(), o.fulfillment_status]),
+    );
+  };
+
   const tabStyle = (active: boolean) => ({
-    padding: "7px 16px",
-    borderRadius: radius.sm,
-    fontSize: "14px",
+    padding: "7px 16px", borderRadius: radius.sm, fontSize: "14px",
     fontWeight: active ? (600 as const) : (400 as const),
     background: active ? colors.brand : "transparent",
     color: active ? "#fff" : colors.textPrimary,
@@ -40,15 +53,28 @@ export function OrdersPage() {
 
   return (
     <div style={baseStyles.container}>
-      <h2 style={{ marginBottom: spacing.lg }}>Orders</h2>
-      <div style={{ display: "flex", gap: "8px", marginBottom: spacing.lg }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: spacing.lg }}>
+        <h2 style={{ margin: 0 }}>Orders</h2>
+        <Button variant="secondary" size="sm" onClick={handleExport} disabled={orders.length === 0}>Export CSV</Button>
+      </div>
+
+      <div style={{ display: "flex", gap: spacing.sm, marginBottom: spacing.lg, flexWrap: "wrap" }}>
         <button onClick={() => setTab("unfulfilled")} style={tabStyle(tab === "unfulfilled")}>Unfulfilled</button>
         <button onClick={() => setTab("fulfilled")} style={tabStyle(tab === "fulfilled")}>Fulfilled</button>
+        <div style={{ flex: 1 }} />
+        <select value={sourceFilter} onChange={(e) => setSourceFilter(e.target.value)}
+          style={{ ...baseStyles.input, width: "auto", minWidth: 100 }}>
+          <option value="">All Sources</option>
+          <option value="web">Web</option>
+          <option value="pos">POS</option>
+        </select>
+        <input placeholder="Search order #..." value={search} onChange={(e) => setSearch(e.target.value)}
+          style={{ ...baseStyles.input, width: 200 }} />
       </div>
 
       {loading ? <Spinner label="Loading orders..." /> : orders.length === 0 ? (
         <div style={{ ...baseStyles.card, textAlign: "center", padding: spacing.xl, color: colors.textSecondary }}>
-          No {tab} orders
+          No {tab} orders{search && " matching your search"}
         </div>
       ) : (
         <div style={{ ...baseStyles.card, padding: 0, overflow: "hidden" }}>
