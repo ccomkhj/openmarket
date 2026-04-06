@@ -84,7 +84,7 @@ export function SalePage() {
   const handleBarcodeKeyDown = (e: React.KeyboardEvent) => { if (e.key === "Enter" && barcodeInput.trim()) addByBarcode(barcodeInput.trim()); };
 
   return (
-    <div style={{ display: "flex", height: "100vh" }}>
+    <div style={{ display: "flex", height: "100%" }}>
       {/* Left: Input Area */}
       <div style={{ flex: 1, padding: spacing.lg, borderRight: `1px solid ${colors.border}`, background: colors.surface, display: "flex", flexDirection: "column" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: spacing.lg }}>
