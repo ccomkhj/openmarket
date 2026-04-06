@@ -118,7 +118,7 @@ export function AccountPage() {
                   </div>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "14px", color: colors.textSecondary }}>
                     <span>{new Date(order.created_at).toLocaleDateString()}</span>
-                    <span style={{ fontWeight: 600, color: colors.text }}>${order.total_price}</span>
+                    <span style={{ fontWeight: 600, color: colors.textPrimary }}>${order.total_price}</span>
                   </div>
                 </div>
               ))}
