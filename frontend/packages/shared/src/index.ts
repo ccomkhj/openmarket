@@ -8,3 +8,4 @@ export { colors, spacing, radius, font, shadow, navHeight, baseStyles } from "./
 export type * from "./types";
 export { ToastProvider, useToast } from "./components/Toast";
 export { ConfirmDialog } from "./components/ConfirmDialog";
+export { useDebounce } from "./useDebounce";
