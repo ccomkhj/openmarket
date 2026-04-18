@@ -48,17 +48,19 @@ CREATE TRIGGER audit_events_no_delete
 @pytest_asyncio.fixture(autouse=True)
 async def setup_db():
     engine = create_async_engine(TEST_DB_URL)
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-        await conn.execute(sa.text(_TRIGGER_SQL))
-        await conn.execute(sa.text(_TRIGGER_UPDATE_DROP_SQL))
-        await conn.execute(sa.text(_TRIGGER_UPDATE_SQL))
-        await conn.execute(sa.text(_TRIGGER_DELETE_DROP_SQL))
-        await conn.execute(sa.text(_TRIGGER_DELETE_SQL))
-    yield engine
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
-    await engine.dispose()
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+            await conn.execute(sa.text(_TRIGGER_SQL))
+            await conn.execute(sa.text(_TRIGGER_UPDATE_DROP_SQL))
+            await conn.execute(sa.text(_TRIGGER_UPDATE_SQL))
+            await conn.execute(sa.text(_TRIGGER_DELETE_DROP_SQL))
+            await conn.execute(sa.text(_TRIGGER_DELETE_SQL))
+        yield engine
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.drop_all)
+    finally:
+        await engine.dispose()
 
 
 @pytest_asyncio.fixture

@@ -35,6 +35,11 @@ class Session(Base):
 
     id = Column(String(64), primary_key=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    # NOT NULL with a server-side safety-net default so raw-SQL inserts
+    # can't leave a session without an expiry. Application code (see
+    # app.services.session.create_session) always sets expires_at
+    # explicitly, making the default a belt-and-suspenders guard rather
+    # than the happy-path source of truth.
     expires_at = Column(
         DateTime(timezone=True),
         nullable=False,
