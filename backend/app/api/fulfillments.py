@@ -2,11 +2,15 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_db
+from app.api.deps import get_db, require_any_staff
 from app.models.order import Fulfillment, Order
 from app.schemas.fulfillment import FulfillmentCreate, FulfillmentUpdate, FulfillmentOut
 
-router = APIRouter(prefix="/api", tags=["fulfillments"])
+router = APIRouter(
+    prefix="/api",
+    tags=["fulfillments"],
+    dependencies=[Depends(require_any_staff)],
+)
 
 
 @router.post("/orders/{order_id}/fulfillments", response_model=FulfillmentOut, status_code=201)

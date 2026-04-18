@@ -2,14 +2,18 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_db
+from app.api.deps import get_db, require_manager_or_above, require_owner
 from app.models.tax_shipping import TaxRate, ShippingMethod
 from app.schemas.tax_shipping import (
     TaxRateCreate, TaxRateOut,
     ShippingMethodCreate, ShippingMethodOut,
 )
 
-router = APIRouter(prefix="/api", tags=["tax-shipping"])
+router = APIRouter(
+    prefix="/api",
+    tags=["tax-shipping"],
+    dependencies=[Depends(require_manager_or_above)],
+)
 
 
 @router.get("/tax-rates", response_model=list[TaxRateOut])
@@ -18,7 +22,12 @@ async def list_tax_rates(db: AsyncSession = Depends(get_db)):
     return result.scalars().all()
 
 
-@router.post("/tax-rates", response_model=TaxRateOut, status_code=201)
+@router.post(
+    "/tax-rates",
+    response_model=TaxRateOut,
+    status_code=201,
+    dependencies=[Depends(require_owner)],
+)
 async def create_tax_rate(body: TaxRateCreate, db: AsyncSession = Depends(get_db)):
     tax_rate = TaxRate(**body.model_dump())
     db.add(tax_rate)

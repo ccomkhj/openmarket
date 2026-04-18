@@ -2,13 +2,17 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_db
+from app.api.deps import get_db, require_manager_or_above
 from app.models.collection import Collection, CollectionProduct
 from app.models.product import Product
 from app.schemas.collection import CollectionCreate, CollectionUpdate, CollectionOut, CollectionProductAdd
 from app.schemas.product import ProductListOut
 
-router = APIRouter(prefix="/api", tags=["collections"])
+router = APIRouter(
+    prefix="/api",
+    tags=["collections"],
+    dependencies=[Depends(require_manager_or_above)],
+)
 
 
 @router.post("/collections", response_model=CollectionOut, status_code=201)

@@ -23,18 +23,18 @@ async def seed_product_with_inventory(db):
 
 
 @pytest.mark.asyncio
-async def test_get_inventory_levels(client, db):
+async def test_get_inventory_levels(authed_client, db):
     ids = await seed_product_with_inventory(db)
-    response = await client.get(f"/api/inventory-levels?location_id={ids['location_id']}")
+    response = await authed_client.get(f"/api/inventory-levels?location_id={ids['location_id']}")
     assert response.status_code == 200
     assert len(response.json()) == 1
     assert response.json()[0]["available"] == 50
 
 
 @pytest.mark.asyncio
-async def test_set_inventory(client, db):
+async def test_set_inventory(authed_client, db):
     ids = await seed_product_with_inventory(db)
-    response = await client.post("/api/inventory-levels/set", json={
+    response = await authed_client.post("/api/inventory-levels/set", json={
         "inventory_item_id": ids["inventory_item_id"],
         "location_id": ids["location_id"],
         "available": 100,
@@ -44,9 +44,9 @@ async def test_set_inventory(client, db):
 
 
 @pytest.mark.asyncio
-async def test_adjust_inventory(client, db):
+async def test_adjust_inventory(authed_client, db):
     ids = await seed_product_with_inventory(db)
-    response = await client.post("/api/inventory-levels/adjust", json={
+    response = await authed_client.post("/api/inventory-levels/adjust", json={
         "inventory_item_id": ids["inventory_item_id"],
         "location_id": ids["location_id"],
         "available_adjustment": -5,
@@ -56,9 +56,9 @@ async def test_adjust_inventory(client, db):
 
 
 @pytest.mark.asyncio
-async def test_adjust_inventory_prevents_oversell(client, db):
+async def test_adjust_inventory_prevents_oversell(authed_client, db):
     ids = await seed_product_with_inventory(db)
-    response = await client.post("/api/inventory-levels/adjust", json={
+    response = await authed_client.post("/api/inventory-levels/adjust", json={
         "inventory_item_id": ids["inventory_item_id"],
         "location_id": ids["location_id"],
         "available_adjustment": -999,

@@ -3,13 +3,17 @@ from sqlalchemy import select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.api.deps import get_db
+from app.api.deps import get_db, require_manager_or_above
 from app.models.customer import Customer, CustomerAddress
 from app.models.order import Order
 from app.schemas.customer import CustomerCreate, CustomerOut, CustomerUpdate
 from app.schemas.order import OrderListOut
 
-router = APIRouter(prefix="/api", tags=["customers"])
+router = APIRouter(
+    prefix="/api",
+    tags=["customers"],
+    dependencies=[Depends(require_manager_or_above)],
+)
 
 
 @router.post("/customers", response_model=CustomerOut, status_code=201)

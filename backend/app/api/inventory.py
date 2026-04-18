@@ -2,13 +2,17 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_db
+from app.api.deps import get_db, require_manager_or_above
 from app.models.inventory import InventoryLevel, Location
 from app.schemas.inventory import InventoryLevelOut, InventorySet, InventoryAdjust
 from app.schemas.location import LocationOut
 from app.services.inventory import set_inventory, adjust_inventory
 
-router = APIRouter(prefix="/api", tags=["inventory"])
+router = APIRouter(
+    prefix="/api",
+    tags=["inventory"],
+    dependencies=[Depends(require_manager_or_above)],
+)
 
 
 @router.get("/locations", response_model=list[LocationOut])

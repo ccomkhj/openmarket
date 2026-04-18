@@ -2,8 +2,8 @@ import pytest
 
 
 @pytest.mark.asyncio
-async def test_create_customer(client):
-    response = await client.post("/api/customers", json={
+async def test_create_customer(authed_client):
+    response = await authed_client.post("/api/customers", json={
         "first_name": "John",
         "last_name": "Doe",
         "phone": "555-1234",
@@ -16,17 +16,17 @@ async def test_create_customer(client):
 
 
 @pytest.mark.asyncio
-async def test_list_customers(client):
-    await client.post("/api/customers", json={"first_name": "John", "last_name": "Doe"})
-    response = await client.get("/api/customers")
+async def test_list_customers(authed_client):
+    await authed_client.post("/api/customers", json={"first_name": "John", "last_name": "Doe"})
+    response = await authed_client.get("/api/customers")
     assert response.status_code == 200
     assert len(response.json()) == 1
 
 
 @pytest.mark.asyncio
-async def test_get_customer(client):
-    create = await client.post("/api/customers", json={"first_name": "John", "last_name": "Doe"})
+async def test_get_customer(authed_client):
+    create = await authed_client.post("/api/customers", json={"first_name": "John", "last_name": "Doe"})
     cid = create.json()["id"]
-    response = await client.get(f"/api/customers/{cid}")
+    response = await authed_client.get(f"/api/customers/{cid}")
     assert response.status_code == 200
     assert response.json()["first_name"] == "John"

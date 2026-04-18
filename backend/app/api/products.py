@@ -8,7 +8,7 @@ from sqlalchemy.orm import selectinload
 
 from app.config import settings
 
-from app.api.deps import get_db
+from app.api.deps import get_db, require_manager_or_above, require_owner
 from app.models.product import Product, ProductVariant, ProductImage
 from app.models.inventory import InventoryItem
 from app.schemas.product import (
@@ -17,7 +17,11 @@ from app.schemas.product import (
     ProductListWithPriceOut, VariantLookupOut, ProductImageOut,
 )
 
-router = APIRouter(prefix="/api", tags=["products"])
+router = APIRouter(
+    prefix="/api",
+    tags=["products"],
+    dependencies=[Depends(require_manager_or_above)],
+)
 
 
 @router.post("/products", response_model=ProductOut, status_code=201)
@@ -159,7 +163,11 @@ async def update_product(product_id: int, body: ProductUpdate, db: AsyncSession 
     return product
 
 
-@router.delete("/products/{product_id}", response_model=ProductOut)
+@router.delete(
+    "/products/{product_id}",
+    response_model=ProductOut,
+    dependencies=[Depends(require_owner)],
+)
 async def archive_product(product_id: int, db: AsyncSession = Depends(get_db)):
     query = (
         select(Product)

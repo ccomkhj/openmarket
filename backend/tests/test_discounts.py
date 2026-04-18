@@ -4,7 +4,7 @@ from datetime import datetime, timezone, timedelta
 
 
 @pytest.mark.asyncio
-async def test_lookup_valid_discount(client, db):
+async def test_lookup_valid_discount(authed_client, db):
     discount = Discount(
         code="SAVE10",
         discount_type="percentage",
@@ -14,13 +14,13 @@ async def test_lookup_valid_discount(client, db):
     )
     db.add(discount)
     await db.commit()
-    response = await client.post("/api/discounts/lookup?code=SAVE10")
+    response = await authed_client.post("/api/discounts/lookup?code=SAVE10")
     assert response.status_code == 200
     assert response.json()["code"] == "SAVE10"
 
 
 @pytest.mark.asyncio
-async def test_lookup_expired_discount(client, db):
+async def test_lookup_expired_discount(authed_client, db):
     discount = Discount(
         code="OLD10",
         discount_type="percentage",
@@ -30,11 +30,11 @@ async def test_lookup_expired_discount(client, db):
     )
     db.add(discount)
     await db.commit()
-    response = await client.post("/api/discounts/lookup?code=OLD10")
+    response = await authed_client.post("/api/discounts/lookup?code=OLD10")
     assert response.status_code == 404
 
 
 @pytest.mark.asyncio
-async def test_lookup_nonexistent_discount(client):
-    response = await client.post("/api/discounts/lookup?code=NOPE")
+async def test_lookup_nonexistent_discount(authed_client):
+    response = await authed_client.post("/api/discounts/lookup?code=NOPE")
     assert response.status_code == 404

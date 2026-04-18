@@ -5,11 +5,15 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import func, cast, Date, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_db
+from app.api.deps import get_db, require_manager_or_above
 from app.models.order import Order, LineItem
 from app.schemas.analytics import AnalyticsSummary, DailySales, TopProduct
 
-router = APIRouter(prefix="/api", tags=["analytics"])
+router = APIRouter(
+    prefix="/api",
+    tags=["analytics"],
+    dependencies=[Depends(require_manager_or_above)],
+)
 
 
 @router.get("/analytics/summary", response_model=AnalyticsSummary)

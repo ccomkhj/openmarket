@@ -24,8 +24,8 @@ async def seed_for_order(db):
 
 
 @pytest.mark.asyncio
-async def test_update_customer(client, db):
-    create_resp = await client.post("/api/customers", json={
+async def test_update_customer(authed_client, db):
+    create_resp = await authed_client.post("/api/customers", json={
         "first_name": "Jane",
         "last_name": "Doe",
         "phone": "555-0001",
@@ -33,7 +33,7 @@ async def test_update_customer(client, db):
     assert create_resp.status_code == 201
     customer_id = create_resp.json()["id"]
 
-    update_resp = await client.put(f"/api/customers/{customer_id}", json={
+    update_resp = await authed_client.put(f"/api/customers/{customer_id}", json={
         "first_name": "Janet",
     })
     assert update_resp.status_code == 200
@@ -43,10 +43,10 @@ async def test_update_customer(client, db):
 
 
 @pytest.mark.asyncio
-async def test_customer_order_history(client, db):
+async def test_customer_order_history(authed_client, db):
     ids = await seed_for_order(db)
 
-    create_resp = await client.post("/api/customers", json={
+    create_resp = await authed_client.post("/api/customers", json={
         "first_name": "Bob",
         "last_name": "Smith",
         "phone": "555-0002",
@@ -54,14 +54,14 @@ async def test_customer_order_history(client, db):
     assert create_resp.status_code == 201
     customer_id = create_resp.json()["id"]
 
-    order_resp = await client.post("/api/orders", json={
+    order_resp = await authed_client.post("/api/orders", json={
         "source": "web",
         "customer_id": customer_id,
         "line_items": [{"variant_id": ids["variant_id"], "quantity": 1}],
     })
     assert order_resp.status_code == 201
 
-    history_resp = await client.get(f"/api/customers/{customer_id}/orders")
+    history_resp = await authed_client.get(f"/api/customers/{customer_id}/orders")
     assert history_resp.status_code == 200
     orders = history_resp.json()
     assert len(orders) == 1
@@ -69,15 +69,15 @@ async def test_customer_order_history(client, db):
 
 
 @pytest.mark.asyncio
-async def test_lookup_customer_by_phone(client, db):
-    create_resp = await client.post("/api/customers", json={
+async def test_lookup_customer_by_phone(authed_client, db):
+    create_resp = await authed_client.post("/api/customers", json={
         "first_name": "Alice",
         "last_name": "Wonder",
         "phone": "555-0003",
     })
     assert create_resp.status_code == 201
 
-    lookup_resp = await client.get("/api/customers/lookup?phone=555-0003")
+    lookup_resp = await authed_client.get("/api/customers/lookup?phone=555-0003")
     assert lookup_resp.status_code == 200
     data = lookup_resp.json()
     assert data["first_name"] == "Alice"
@@ -85,16 +85,16 @@ async def test_lookup_customer_by_phone(client, db):
 
 
 @pytest.mark.asyncio
-async def test_lookup_customer_missing_params(client):
-    resp = await client.get("/api/customers/lookup")
+async def test_lookup_customer_missing_params(authed_client):
+    resp = await authed_client.get("/api/customers/lookup")
     assert resp.status_code == 400
 
 
 @pytest.mark.asyncio
-async def test_order_auto_creates_customer(client, db):
+async def test_order_auto_creates_customer(authed_client, db):
     ids = await seed_for_order(db)
 
-    order_resp = await client.post("/api/orders", json={
+    order_resp = await authed_client.post("/api/orders", json={
         "source": "web",
         "customer_name": "New Person",
         "customer_phone": "555-9999",
@@ -105,7 +105,7 @@ async def test_order_auto_creates_customer(client, db):
     assert order_data["customer_id"] is not None
 
     # Verify customer was created and can be looked up
-    lookup_resp = await client.get("/api/customers/lookup?phone=555-9999")
+    lookup_resp = await authed_client.get("/api/customers/lookup?phone=555-9999")
     assert lookup_resp.status_code == 200
     customer_data = lookup_resp.json()
     assert customer_data["first_name"] == "New"

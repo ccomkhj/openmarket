@@ -4,11 +4,15 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_db
+from app.api.deps import get_db, require_manager_or_above
 from app.models.discount import Discount
 from app.schemas.discount import DiscountCreate, DiscountUpdate, DiscountOut
 
-router = APIRouter(prefix="/api", tags=["discounts"])
+router = APIRouter(
+    prefix="/api",
+    tags=["discounts"],
+    dependencies=[Depends(require_manager_or_above)],
+)
 
 
 @router.post("/discounts/lookup", response_model=DiscountOut)

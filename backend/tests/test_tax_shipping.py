@@ -24,8 +24,8 @@ async def seed_product_at_price(db, price: float):
 
 
 @pytest.mark.asyncio
-async def test_create_and_list_tax_rates(client):
-    response = await client.post("/api/tax-rates", json={
+async def test_create_and_list_tax_rates(authed_client):
+    response = await authed_client.post("/api/tax-rates", json={
         "name": "GST",
         "rate": "0.1000",
         "region": "AU",
@@ -36,7 +36,7 @@ async def test_create_and_list_tax_rates(client):
     assert data["name"] == "GST"
     assert data["is_default"] is True
 
-    response = await client.get("/api/tax-rates")
+    response = await authed_client.get("/api/tax-rates")
     assert response.status_code == 200
     rates = response.json()
     assert len(rates) == 1
@@ -44,8 +44,8 @@ async def test_create_and_list_tax_rates(client):
 
 
 @pytest.mark.asyncio
-async def test_create_and_list_shipping_methods(client):
-    response = await client.post("/api/shipping-methods", json={
+async def test_create_and_list_shipping_methods(authed_client):
+    response = await authed_client.post("/api/shipping-methods", json={
         "name": "Standard Delivery",
         "price": "5.00",
         "min_order_amount": "50.00",
@@ -56,7 +56,7 @@ async def test_create_and_list_shipping_methods(client):
     assert data["name"] == "Standard Delivery"
     assert data["price"] == "5.00"
 
-    response = await client.get("/api/shipping-methods")
+    response = await authed_client.get("/api/shipping-methods")
     assert response.status_code == 200
     methods = response.json()
     assert len(methods) == 1
@@ -64,7 +64,7 @@ async def test_create_and_list_shipping_methods(client):
 
 
 @pytest.mark.asyncio
-async def test_order_includes_tax(client, db):
+async def test_order_includes_tax(authed_client, db):
     # Seed a default tax rate of 10%
     tax = TaxRate(name="Standard Tax", rate=0.10, region="default", is_default=True)
     db.add(tax)
@@ -73,7 +73,7 @@ async def test_order_includes_tax(client, db):
     # Seed a product at $100
     ids = await seed_product_at_price(db, 100.00)
 
-    response = await client.post("/api/orders", json={
+    response = await authed_client.post("/api/orders", json={
         "source": "web",
         "line_items": [{"variant_id": ids["variant_id"], "quantity": 1}],
     })
@@ -86,11 +86,11 @@ async def test_order_includes_tax(client, db):
 
 
 @pytest.mark.asyncio
-async def test_order_no_tax_when_no_default(client, db):
+async def test_order_no_tax_when_no_default(authed_client, db):
     """Without a default tax rate, tax_amount should be 0 (backward compat)."""
     ids = await seed_product_at_price(db, 50.00)
 
-    response = await client.post("/api/orders", json={
+    response = await authed_client.post("/api/orders", json={
         "source": "web",
         "line_items": [{"variant_id": ids["variant_id"], "quantity": 2}],
     })
@@ -102,10 +102,10 @@ async def test_order_no_tax_when_no_default(client, db):
 
 
 @pytest.mark.asyncio
-async def test_order_with_shipping_method(client, db):
+async def test_order_with_shipping_method(authed_client, db):
     ids = await seed_product_at_price(db, 10.00)
 
-    shipping_resp = await client.post("/api/shipping-methods", json={
+    shipping_resp = await authed_client.post("/api/shipping-methods", json={
         "name": "Express",
         "price": "12.00",
         "min_order_amount": "0",
@@ -113,7 +113,7 @@ async def test_order_with_shipping_method(client, db):
     })
     shipping_id = shipping_resp.json()["id"]
 
-    response = await client.post("/api/orders", json={
+    response = await authed_client.post("/api/orders", json={
         "source": "web",
         "shipping_method_id": shipping_id,
         "line_items": [{"variant_id": ids["variant_id"], "quantity": 1}],
@@ -126,11 +126,11 @@ async def test_order_with_shipping_method(client, db):
 
 
 @pytest.mark.asyncio
-async def test_order_free_shipping_threshold(client, db):
+async def test_order_free_shipping_threshold(authed_client, db):
     """When subtotal >= min_order_amount, shipping should be free."""
     ids = await seed_product_at_price(db, 60.00)
 
-    shipping_resp = await client.post("/api/shipping-methods", json={
+    shipping_resp = await authed_client.post("/api/shipping-methods", json={
         "name": "Standard",
         "price": "5.00",
         "min_order_amount": "50.00",
@@ -138,7 +138,7 @@ async def test_order_free_shipping_threshold(client, db):
     })
     shipping_id = shipping_resp.json()["id"]
 
-    response = await client.post("/api/orders", json={
+    response = await authed_client.post("/api/orders", json={
         "source": "web",
         "shipping_method_id": shipping_id,
         "line_items": [{"variant_id": ids["variant_id"], "quantity": 1}],

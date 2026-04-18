@@ -23,9 +23,9 @@ async def seed_for_order(db):
 
 
 @pytest.mark.asyncio
-async def test_create_web_order(client, db):
+async def test_create_web_order(authed_client, db):
     ids = await seed_for_order(db)
-    response = await client.post("/api/orders", json={
+    response = await authed_client.post("/api/orders", json={
         "source": "web",
         "customer_name": "John Doe",
         "customer_phone": "555-1234",
@@ -41,9 +41,9 @@ async def test_create_web_order(client, db):
 
 
 @pytest.mark.asyncio
-async def test_create_pos_order(client, db):
+async def test_create_pos_order(cashier_client, db):
     ids = await seed_for_order(db)
-    response = await client.post("/api/orders", json={
+    response = await cashier_client.post("/api/orders", json={
         "source": "pos",
         "line_items": [{"variant_id": ids["variant_id"], "quantity": 3}],
     })
@@ -54,20 +54,20 @@ async def test_create_pos_order(client, db):
 
 
 @pytest.mark.asyncio
-async def test_order_deducts_inventory(client, db):
+async def test_order_deducts_inventory(authed_client, db):
     ids = await seed_for_order(db)
-    await client.post("/api/orders", json={
+    await authed_client.post("/api/orders", json={
         "source": "pos",
         "line_items": [{"variant_id": ids["variant_id"], "quantity": 5}],
     })
-    inv = await client.get(f"/api/inventory-levels?location_id={ids['location_id']}")
+    inv = await authed_client.get(f"/api/inventory-levels?location_id={ids['location_id']}")
     assert inv.json()[0]["available"] == 45
 
 
 @pytest.mark.asyncio
-async def test_order_fails_on_insufficient_stock(client, db):
+async def test_order_fails_on_insufficient_stock(cashier_client, db):
     ids = await seed_for_order(db)
-    response = await client.post("/api/orders", json={
+    response = await cashier_client.post("/api/orders", json={
         "source": "pos",
         "line_items": [{"variant_id": ids["variant_id"], "quantity": 999}],
     })
@@ -75,45 +75,45 @@ async def test_order_fails_on_insufficient_stock(client, db):
 
 
 @pytest.mark.asyncio
-async def test_list_orders(client, db):
+async def test_list_orders(authed_client, db):
     ids = await seed_for_order(db)
-    await client.post("/api/orders", json={
+    await authed_client.post("/api/orders", json={
         "source": "pos",
         "line_items": [{"variant_id": ids["variant_id"], "quantity": 1}],
     })
-    response = await client.get("/api/orders")
+    response = await authed_client.get("/api/orders")
     assert response.status_code == 200
     assert len(response.json()) == 1
 
 
 @pytest.mark.asyncio
-async def test_get_order(client, db):
+async def test_get_order(authed_client, db):
     ids = await seed_for_order(db)
-    create = await client.post("/api/orders", json={
+    create = await authed_client.post("/api/orders", json={
         "source": "pos",
         "line_items": [{"variant_id": ids["variant_id"], "quantity": 1}],
     })
     oid = create.json()["id"]
-    response = await client.get(f"/api/orders/{oid}")
+    response = await authed_client.get(f"/api/orders/{oid}")
     assert response.status_code == 200
     assert len(response.json()["line_items"]) == 1
 
 
 @pytest.mark.asyncio
-async def test_lookup_order_by_number(client, db):
+async def test_lookup_order_by_number(authed_client, db):
     ids = await seed_for_order(db)
-    create = await client.post("/api/orders", json={
+    create = await authed_client.post("/api/orders", json={
         "source": "pos",
         "line_items": [{"variant_id": ids["variant_id"], "quantity": 1}],
     })
     order_number = create.json()["order_number"]
-    response = await client.get(f"/api/orders/lookup?order_number={order_number}")
+    response = await authed_client.get(f"/api/orders/lookup?order_number={order_number}")
     assert response.status_code == 200
     assert response.json()["order_number"] == order_number
     assert len(response.json()["line_items"]) == 1
 
 
 @pytest.mark.asyncio
-async def test_lookup_order_not_found(client):
-    response = await client.get("/api/orders/lookup?order_number=NOPE")
+async def test_lookup_order_not_found(authed_client):
+    response = await authed_client.get("/api/orders/lookup?order_number=NOPE")
     assert response.status_code == 404

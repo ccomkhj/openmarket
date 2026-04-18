@@ -3,12 +3,16 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.api.deps import get_db
+from app.api.deps import get_db, require_any_staff
 from app.models.order import Order
 from app.schemas.order import OrderCreate, OrderUpdate, OrderOut, OrderListOut
 from app.services.order import create_order
 
-router = APIRouter(prefix="/api", tags=["orders"])
+router = APIRouter(
+    prefix="/api",
+    tags=["orders"],
+    dependencies=[Depends(require_any_staff)],
+)
 
 
 @router.post("/orders", response_model=OrderOut, status_code=201)

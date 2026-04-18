@@ -26,8 +26,8 @@ async def seed_for_return(db):
     }
 
 
-async def create_pos_order(client, variant_id: int, quantity: int):
-    response = await client.post("/api/orders", json={
+async def create_pos_order(authed_client, variant_id: int, quantity: int):
+    response = await authed_client.post("/api/orders", json={
         "source": "pos",
         "line_items": [{"variant_id": variant_id, "quantity": quantity}],
     })
@@ -36,12 +36,12 @@ async def create_pos_order(client, variant_id: int, quantity: int):
 
 
 @pytest.mark.asyncio
-async def test_create_return(client, db):
+async def test_create_return(authed_client, db):
     ids = await seed_for_return(db)
-    order = await create_pos_order(client, ids["variant_id"], 3)
+    order = await create_pos_order(authed_client, ids["variant_id"], 3)
     line_item_id = order["line_items"][0]["id"]
 
-    response = await client.post("/api/returns", json={
+    response = await authed_client.post("/api/returns", json={
         "order_id": order["id"],
         "reason": "damaged",
         "items": [{"line_item_id": line_item_id, "quantity": 1}],
@@ -57,34 +57,34 @@ async def test_create_return(client, db):
 
 
 @pytest.mark.asyncio
-async def test_return_restores_inventory(client, db):
+async def test_return_restores_inventory(authed_client, db):
     ids = await seed_for_return(db)
     # Start at 50, sell 3 -> 47
-    order = await create_pos_order(client, ids["variant_id"], 3)
+    order = await create_pos_order(authed_client, ids["variant_id"], 3)
     line_item_id = order["line_items"][0]["id"]
 
-    inv_after_sale = await client.get(f"/api/inventory-levels?location_id={ids['location_id']}")
+    inv_after_sale = await authed_client.get(f"/api/inventory-levels?location_id={ids['location_id']}")
     assert inv_after_sale.json()[0]["available"] == 47
 
     # Return 2 -> should restore to 49
-    response = await client.post("/api/returns", json={
+    response = await authed_client.post("/api/returns", json={
         "order_id": order["id"],
         "reason": "changed mind",
         "items": [{"line_item_id": line_item_id, "quantity": 2}],
     })
     assert response.status_code == 201
 
-    inv_after_return = await client.get(f"/api/inventory-levels?location_id={ids['location_id']}")
+    inv_after_return = await authed_client.get(f"/api/inventory-levels?location_id={ids['location_id']}")
     assert inv_after_return.json()[0]["available"] == 49
 
 
 @pytest.mark.asyncio
-async def test_return_over_quantity_fails(client, db):
+async def test_return_over_quantity_fails(authed_client, db):
     ids = await seed_for_return(db)
-    order = await create_pos_order(client, ids["variant_id"], 3)
+    order = await create_pos_order(authed_client, ids["variant_id"], 3)
     line_item_id = order["line_items"][0]["id"]
 
-    response = await client.post("/api/returns", json={
+    response = await authed_client.post("/api/returns", json={
         "order_id": order["id"],
         "reason": "test",
         "items": [{"line_item_id": line_item_id, "quantity": 999}],
@@ -94,18 +94,18 @@ async def test_return_over_quantity_fails(client, db):
 
 
 @pytest.mark.asyncio
-async def test_list_returns_for_order(client, db):
+async def test_list_returns_for_order(authed_client, db):
     ids = await seed_for_return(db)
-    order = await create_pos_order(client, ids["variant_id"], 3)
+    order = await create_pos_order(authed_client, ids["variant_id"], 3)
     line_item_id = order["line_items"][0]["id"]
 
-    await client.post("/api/returns", json={
+    await authed_client.post("/api/returns", json={
         "order_id": order["id"],
         "reason": "test",
         "items": [{"line_item_id": line_item_id, "quantity": 1}],
     })
 
-    response = await client.get(f"/api/orders/{order['id']}/returns")
+    response = await authed_client.get(f"/api/orders/{order['id']}/returns")
     assert response.status_code == 200
     data = response.json()
     assert len(data) == 1

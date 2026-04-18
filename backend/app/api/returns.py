@@ -3,12 +3,16 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.api.deps import get_db
+from app.api.deps import get_db, require_any_staff
 from app.models.order import Return
 from app.schemas.returns import ReturnCreate, ReturnOut
 from app.services.returns import create_return
 
-router = APIRouter(prefix="/api", tags=["returns"])
+router = APIRouter(
+    prefix="/api",
+    tags=["returns"],
+    dependencies=[Depends(require_any_staff)],
+)
 
 
 @router.post("/returns", response_model=ReturnOut, status_code=201)

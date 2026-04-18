@@ -23,8 +23,8 @@ async def seed_for_analytics(db):
 
 
 @pytest.mark.asyncio
-async def test_analytics_summary_empty(client):
-    response = await client.get("/api/analytics/summary?days=30")
+async def test_analytics_summary_empty(authed_client):
+    response = await authed_client.get("/api/analytics/summary?days=30")
     assert response.status_code == 200
     data = response.json()
     assert data["total_orders"] == 0
@@ -35,18 +35,18 @@ async def test_analytics_summary_empty(client):
 
 
 @pytest.mark.asyncio
-async def test_analytics_summary_with_orders(client, db):
+async def test_analytics_summary_with_orders(authed_client, db):
     ids = await seed_for_analytics(db)
 
     # Create 3 POS orders with 2 items each at $10
     for _ in range(3):
-        response = await client.post("/api/orders", json={
+        response = await authed_client.post("/api/orders", json={
             "source": "pos",
             "line_items": [{"variant_id": ids["variant_id"], "quantity": 2}],
         })
         assert response.status_code == 201
 
-    response = await client.get("/api/analytics/summary?days=30")
+    response = await authed_client.get("/api/analytics/summary?days=30")
     assert response.status_code == 200
     data = response.json()
 

@@ -2,8 +2,8 @@ import pytest
 
 
 @pytest.mark.asyncio
-async def test_create_collection(client):
-    response = await client.post("/api/collections", json={
+async def test_create_collection(authed_client):
+    response = await authed_client.post("/api/collections", json={
         "title": "Dairy", "handle": "dairy",
     })
     assert response.status_code == 201
@@ -11,24 +11,24 @@ async def test_create_collection(client):
 
 
 @pytest.mark.asyncio
-async def test_list_collections(client):
-    await client.post("/api/collections", json={"title": "Dairy", "handle": "dairy"})
-    await client.post("/api/collections", json={"title": "Bakery", "handle": "bakery"})
-    response = await client.get("/api/collections")
+async def test_list_collections(authed_client):
+    await authed_client.post("/api/collections", json={"title": "Dairy", "handle": "dairy"})
+    await authed_client.post("/api/collections", json={"title": "Bakery", "handle": "bakery"})
+    response = await authed_client.get("/api/collections")
     assert response.status_code == 200
     assert len(response.json()) == 2
 
 
 @pytest.mark.asyncio
-async def test_collection_products(client):
-    col = await client.post("/api/collections", json={"title": "Dairy", "handle": "dairy"})
+async def test_collection_products(authed_client):
+    col = await authed_client.post("/api/collections", json={"title": "Dairy", "handle": "dairy"})
     cid = col.json()["id"]
-    prod = await client.post("/api/products", json={
+    prod = await authed_client.post("/api/products", json={
         "title": "Milk", "handle": "milk", "variants": [{"price": "2.99"}],
     })
     pid = prod.json()["id"]
-    await client.post(f"/api/collections/{cid}/products", json={"product_id": pid})
-    response = await client.get(f"/api/collections/{cid}/products")
+    await authed_client.post(f"/api/collections/{cid}/products", json={"product_id": pid})
+    response = await authed_client.get(f"/api/collections/{cid}/products")
     assert response.status_code == 200
     assert len(response.json()) == 1
     assert response.json()[0]["title"] == "Milk"
