@@ -100,7 +100,10 @@ async def setup(req: SetupRequest, response: Response, request: Request, db: Asy
 
 
 @router.get("/cashiers", response_model=list[PosLoginResponse])
-async def list_cashiers(db: AsyncSession = Depends(get_db)):
+async def list_cashiers(request: Request, db: AsyncSession = Depends(get_db)):
+    ip = _client_ip(request)
+    if not _ip_is_lan(ip):
+        raise HTTPException(status_code=403, detail="cashier list only from LAN")
     result = await db.execute(
         select(User)
         .where(User.role == "cashier", User.active.is_(True))

@@ -107,6 +107,22 @@ async def test_list_cashiers(client, db):
 
 
 @pytest.mark.asyncio
+async def test_list_cashiers_rejects_non_lan(client, db):
+    from app.models import User
+    from app.services.password import hash_pin
+
+    c = User(email=None, password_hash=None, pin_hash=hash_pin("1234"),
+             full_name="Anna M.", role="cashier")
+    db.add(c); await db.commit()
+
+    r = await client.get(
+        "/api/auth/cashiers",
+        headers={"X-Forwarded-For": "8.8.8.8"},
+    )
+    assert r.status_code == 403
+
+
+@pytest.mark.asyncio
 async def test_cors_rejects_unknown_origin(client):
     r = await client.options(
         "/api/auth/me",
