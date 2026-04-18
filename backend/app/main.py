@@ -55,12 +55,13 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="OpenMarket API", lifespan=lifespan)
 
+_allowed = [o.strip() for o in settings.allowed_cors_origins.split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_allowed,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-Forwarded-For"],
 )
 
 app.add_middleware(LoggingMiddleware)

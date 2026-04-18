@@ -88,3 +88,27 @@ async def test_logout_revokes_session(client, db):
     await client.post("/api/auth/logout")
     me2 = await client.get("/api/auth/me")
     assert me2.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_cors_rejects_unknown_origin(client):
+    r = await client.options(
+        "/api/auth/me",
+        headers={
+            "Origin": "https://evil.example",
+            "Access-Control-Request-Method": "GET",
+        },
+    )
+    assert "access-control-allow-origin" not in {k.lower() for k in r.headers}
+
+
+@pytest.mark.asyncio
+async def test_cors_accepts_admin_origin(client):
+    r = await client.options(
+        "/api/auth/me",
+        headers={
+            "Origin": "https://admin.local",
+            "Access-Control-Request-Method": "GET",
+        },
+    )
+    assert r.headers.get("access-control-allow-origin") == "https://admin.local"
