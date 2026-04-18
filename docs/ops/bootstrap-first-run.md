@@ -27,3 +27,11 @@ first owner is deleted, because the guard is "any user exists".
 - Never share the session cookie.
 - Never disable HIBP in production (`hibp_enabled=False`) — it's there
   precisely to catch the owner using a weak passphrase.
+
+## After updating nginx.conf
+
+Whenever `nginx.conf` changes, either restart the nginx container
+(`docker compose restart nginx`) or reload in-place
+(`docker compose exec nginx nginx -s reload`). The running container reads
+the file via a bind mount, so edits in the repo take effect after the
+reload — no rebuild required.
