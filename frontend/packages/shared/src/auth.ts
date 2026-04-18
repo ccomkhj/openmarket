@@ -61,3 +61,25 @@ export async function fetchBootstrapStatus(): Promise<BootstrapStatus> {
   if (!r.ok) throw new Error(`bootstrap-status failed: ${r.status}`);
   return (await r.json()) as BootstrapStatus;
 }
+
+export async function mfaEnroll() {
+  const r = await fetch(`${base}/mfa/enroll`, {
+    method: "POST",
+    credentials: "include",
+  });
+  const body = await r.json();
+  if (!r.ok) throw new Error(body.detail ?? "enroll failed");
+  return body as { secret: string; uri: string };
+}
+
+export async function mfaVerify(code: string) {
+  const r = await fetch(`${base}/mfa/verify`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ code }),
+  });
+  const body = await r.json();
+  if (!r.ok) throw new Error(body.detail ?? "verify failed");
+  return body;
+}

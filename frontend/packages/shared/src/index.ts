@@ -11,5 +11,5 @@ export { ToastProvider, useToast } from "./components/Toast";
 export { ConfirmDialog } from "./components/ConfirmDialog";
 export { useDebounce } from "./useDebounce";
 export { exportCsv } from "./exportCsv";
-export { fetchMe, login, logout, setup, posLogin, fetchBootstrapStatus } from "./auth";
+export { fetchMe, login, logout, setup, posLogin, fetchBootstrapStatus, mfaEnroll, mfaVerify } from "./auth";
 export type { Me, BootstrapStatus } from "./auth";

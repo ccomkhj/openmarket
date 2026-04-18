@@ -4,24 +4,27 @@ import { OrdersPage } from "./pages/OrdersPage";
 import { AnalyticsPage } from "./pages/AnalyticsPage";
 import { CustomersPage } from "./pages/CustomersPage";
 import { SettingsPage } from "./pages/SettingsPage";
-import { baseStyles, colors, ToastProvider } from "@openmarket/shared";
+import { Security } from "./pages/Security";
+import { baseStyles, colors, ToastProvider, type Me } from "@openmarket/shared";
 import { RequireAuth } from "./components/RequireAuth";
 
 export function App() {
   return (
     <RequireAuth>
-      {(_me) => <AdminShell />}
+      {(me) => <AdminShell me={me} />}
     </RequireAuth>
   );
 }
 
-function AdminShell() {
+function AdminShell({ me }: { me: Me }) {
   const location = useLocation();
   const linkStyle = (path: string) => ({
     ...baseStyles.navLink,
     color: location.pathname === path ? colors.brand : colors.textSecondary,
     fontWeight: location.pathname === path ? (600 as const) : (500 as const),
   });
+
+  const canSeeSecurity = me.role === "owner" || me.role === "manager";
 
   return (
   <ToastProvider>
@@ -34,6 +37,9 @@ function AdminShell() {
         <Link to="/orders" style={linkStyle("/orders")}>Orders</Link>
         <Link to="/customers" style={linkStyle("/customers")}>Customers</Link>
         <Link to="/settings" style={linkStyle("/settings")}>Settings</Link>
+        {canSeeSecurity && (
+          <Link to="/security" style={linkStyle("/security")}>Security</Link>
+        )}
       </nav>
       <Routes>
         <Route path="/" element={<Navigate to="/analytics" replace />} />
@@ -42,6 +48,7 @@ function AdminShell() {
         <Route path="/orders" element={<OrdersPage />} />
         <Route path="/customers" element={<CustomersPage />} />
         <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/security" element={<Security />} />
       </Routes>
     </div>
   </ToastProvider>
