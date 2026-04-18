@@ -43,3 +43,7 @@ class MeResponse(BaseModel):
     email: str | None
     full_name: str
     role: str
+
+
+class BootstrapStatus(BaseModel):
+    setup_required: bool

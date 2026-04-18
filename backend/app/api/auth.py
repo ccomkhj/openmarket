@@ -11,6 +11,7 @@ from app.models import User
 from app.schemas.auth import (
     LoginRequest, LoginResponse, PosLoginRequest, PosLoginResponse,
     SetupRequest, MfaEnrollResponse, MfaVerifyRequest, MeResponse,
+    BootstrapStatus,
 )
 from app.services.audit import log_event
 from app.services.mfa import new_totp_secret, totp_uri, verify_totp
@@ -72,6 +73,12 @@ def _set_session_cookie(response: Response, token: str) -> None:
         max_age=settings.admin_session_absolute_max_hours * 3600,
         path="/",
     )
+
+
+@router.get("/bootstrap-status", response_model=BootstrapStatus)
+async def bootstrap_status(db: AsyncSession = Depends(get_db)):
+    existing = await db.execute(select(User).limit(1))
+    return BootstrapStatus(setup_required=existing.scalar_one_or_none() is None)
 
 
 @router.post("/setup", response_model=LoginResponse)
