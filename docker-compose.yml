@@ -20,8 +20,10 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    env_file:
+      - .env
     environment:
-      DATABASE_URL: postgresql+asyncpg://openmarket:${DB_PASSWORD:-openmarket}@db:5432/openmarket
+      DATABASE_URL: ${DATABASE_URL}
     ports:
       - "8000:8000"
 
