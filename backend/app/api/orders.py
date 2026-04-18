@@ -11,6 +11,7 @@ from app.services.weighed import (
     WeightMissingError,
     WeightOutOfRangeError,
     PricingTypeMismatchError,
+    QuantityOnWeighedError,  # new
 )
 
 router = APIRouter(
@@ -33,7 +34,12 @@ async def create(body: OrderCreate, db: AsyncSession = Depends(get_db)):
             shipping_address=body.shipping_address,
             shipping_method_id=body.shipping_method_id,
         )
-    except (WeightMissingError, WeightOutOfRangeError, PricingTypeMismatchError) as e:
+    except (
+        WeightMissingError,
+        WeightOutOfRangeError,
+        PricingTypeMismatchError,
+        QuantityOnWeighedError,
+    ) as e:
         raise HTTPException(status_code=400, detail=str(e))
     except ValueError as e:
         raise HTTPException(status_code=409, detail=str(e))

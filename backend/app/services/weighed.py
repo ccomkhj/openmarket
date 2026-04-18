@@ -32,3 +32,19 @@ def compute_weighed_line_price(*, variant: ProductVariant, quantity_kg: Decimal)
     net_kg = quantity_kg - (variant.tare_kg or Decimal("0"))
     raw = net_kg * variant.price
     return raw.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+
+class QuantityOnWeighedError(ValueError):
+    pass
+
+
+def validate_weighed_line_quantity(*, variant: ProductVariant, quantity: int, quantity_kg: Decimal | None) -> None:
+    """Stricter guard than validate_weighed_line: on by_weight, require quantity==1.
+
+    Prevents silent overwrites like quantity=5 + quantity_kg=0.452 being
+    accepted and stored as quantity=1 + quantity_kg=0.452.
+    """
+    if variant.pricing_type == "by_weight" and quantity != 1:
+        raise QuantityOnWeighedError(
+            "by_weight variants must have quantity=1; use quantity_kg for the weight"
+        )

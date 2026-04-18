@@ -12,7 +12,12 @@ from app.models.product import ProductVariant
 from app.models.tax_shipping import TaxRate, ShippingMethod
 from app.services.weighed import (
     validate_weighed_line,
+    validate_weighed_line_quantity,  # new
     compute_weighed_line_price,
+    WeightMissingError,
+    WeightOutOfRangeError,
+    PricingTypeMismatchError,
+    QuantityOnWeighedError,  # new
 )
 from app.ws.manager import manager
 
@@ -59,6 +64,11 @@ async def create_order(
         raw_quantity_kg = item_data.get("quantity_kg")
         quantity_kg = (
             Decimal(str(raw_quantity_kg)) if raw_quantity_kg is not None else None
+        )
+        validate_weighed_line_quantity(
+            variant=variant,
+            quantity=item_data["quantity"],
+            quantity_kg=quantity_kg,
         )
         validate_weighed_line(variant=variant, quantity_kg=quantity_kg)
 
