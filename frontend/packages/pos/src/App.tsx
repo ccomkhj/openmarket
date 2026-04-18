@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { SalePage } from "./pages/SalePage";
+import { RequireCashier } from "./components/RequireCashier";
 import { font, colors, spacing, baseStyles, ToastProvider } from "@openmarket/shared";
 
 function Clock() {
@@ -14,24 +15,29 @@ function Clock() {
 export function App() {
   return (
     <ToastProvider>
-      <div style={{ fontFamily: font.body, display: "flex", flexDirection: "column", height: "100vh" }}>
-        <nav style={{
-          ...baseStyles.nav,
-          height: "44px",
-          padding: `0 ${spacing.md}`,
-          borderBottom: `1px solid ${colors.border}`,
-          justifyContent: "space-between",
-        }}>
-          <span style={{ fontWeight: 700, color: colors.brand, fontSize: "1rem" }}>OpenMarket POS</span>
-          <div style={{ display: "flex", alignItems: "center", gap: spacing.lg, fontSize: "13px", color: colors.textSecondary }}>
-            <Clock />
-            <span>{new Date().toLocaleDateString()}</span>
+      <RequireCashier>
+        {(me) => (
+          <div style={{ fontFamily: font.body, display: "flex", flexDirection: "column", height: "100vh" }}>
+            <nav style={{
+              ...baseStyles.nav,
+              height: "44px",
+              padding: `0 ${spacing.md}`,
+              borderBottom: `1px solid ${colors.border}`,
+              justifyContent: "space-between",
+            }}>
+              <span style={{ fontWeight: 700, color: colors.brand, fontSize: "1rem" }}>OpenMarket POS</span>
+              <div style={{ display: "flex", alignItems: "center", gap: spacing.lg, fontSize: "13px", color: colors.textSecondary }}>
+                <span>{me.full_name}</span>
+                <Clock />
+                <span>{new Date().toLocaleDateString()}</span>
+              </div>
+            </nav>
+            <div style={{ flex: 1, overflow: "hidden" }}>
+              <SalePage />
+            </div>
           </div>
-        </nav>
-        <div style={{ flex: 1, overflow: "hidden" }}>
-          <SalePage />
-        </div>
-      </div>
+        )}
+      </RequireCashier>
     </ToastProvider>
   );
 }

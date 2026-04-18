@@ -91,6 +91,22 @@ async def test_logout_revokes_session(client, db):
 
 
 @pytest.mark.asyncio
+async def test_list_cashiers(client, db):
+    c = User(email=None, password_hash=None, pin_hash=hash_pin("1234"),
+             full_name="Anna M.", role="cashier")
+    m = User(email="mgr@x.de", password_hash="x", full_name="Manager X", role="manager")
+    db.add_all([c, m])
+    await db.commit()
+
+    r = await client.get("/api/auth/cashiers")
+    assert r.status_code == 200
+    body = r.json()
+    names = [row["full_name"] for row in body]
+    assert "Anna M." in names
+    assert "Manager X" not in names  # managers excluded
+
+
+@pytest.mark.asyncio
 async def test_cors_rejects_unknown_origin(client):
     r = await client.options(
         "/api/auth/me",

@@ -80,6 +80,16 @@ async def setup(req: SetupRequest, response: Response, request: Request, db: Asy
     return LoginResponse(user_id=owner.id, role="owner")
 
 
+@router.get("/cashiers", response_model=list[PosLoginResponse])
+async def list_cashiers(db: AsyncSession = Depends(get_db)):
+    result = await db.execute(
+        select(User)
+        .where(User.role == "cashier", User.active.is_(True))
+        .order_by(User.full_name)
+    )
+    return [PosLoginResponse(user_id=u.id, full_name=u.full_name) for u in result.scalars().all()]
+
+
 @router.post("/login", response_model=LoginResponse)
 async def login(req: LoginRequest, response: Response, request: Request, db: AsyncSession = Depends(get_db)):
     ip = _client_ip(request)
