@@ -5,6 +5,7 @@ from app.models.customer import Customer, CustomerAddress
 from app.models.order import Order, LineItem, Fulfillment
 from app.models.discount import Discount
 from app.models.tax_shipping import TaxRate, ShippingMethod
+from app.models.auth import User, Session, AuditEvent, LoginAttempt
 
 __all__ = [
     "Product", "ProductVariant", "ProductImage",
@@ -14,4 +15,5 @@ __all__ = [
     "Order", "LineItem", "Fulfillment",
     "Discount",
     "TaxRate", "ShippingMethod",
+    "User", "Session", "AuditEvent", "LoginAttempt",
 ]
