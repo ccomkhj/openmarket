@@ -53,3 +53,11 @@ export async function posLogin(userId: number, pin: string) {
   if (!r.ok) throw new Error(body.detail ?? "login failed");
   return body;
 }
+
+export type BootstrapStatus = { setup_required: boolean };
+
+export async function fetchBootstrapStatus(): Promise<BootstrapStatus> {
+  const r = await fetch(`${base}/bootstrap-status`, { credentials: "include" });
+  if (!r.ok) throw new Error(`bootstrap-status failed: ${r.status}`);
+  return (await r.json()) as BootstrapStatus;
+}

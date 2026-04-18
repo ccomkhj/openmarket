@@ -1,34 +1,31 @@
 import { useEffect, useState } from "react";
-import { fetchMe, type Me } from "@openmarket/shared";
+import { fetchBootstrapStatus, fetchMe, type Me } from "@openmarket/shared";
 import { Login } from "../pages/Login";
 import { Setup } from "../pages/Setup";
 
-type State = Me | null | "loading" | "setup";
+type State = "loading" | "setup" | "login" | { me: Me };
 
 export function RequireAuth({ children }: { children: (me: Me) => React.ReactNode }) {
-  const [me, setMe] = useState<State>("loading");
+  const [state, setState] = useState<State>("loading");
 
   async function reload() {
     try {
-      const m = await fetchMe();
-      setMe(m);
+      const me = await fetchMe();
+      if (me) {
+        setState({ me });
+        return;
+      }
+      const status = await fetchBootstrapStatus();
+      setState(status.setup_required ? "setup" : "login");
     } catch {
-      setMe(null);
+      setState("login");
     }
   }
 
-  useEffect(() => {
-    if (typeof window !== "undefined" && window.location.search.includes("setup")) {
-      setMe("setup");
-      return;
-    }
-    void reload();
-  }, []);
+  useEffect(() => { void reload(); }, []);
 
-  if (me === "loading") return <p>Loading...</p>;
-  if (me === "setup") return <Setup onComplete={reload} />;
-  if (me === null) {
-    return <Login onSuccess={reload} />;
-  }
-  return <>{children(me)}</>;
+  if (state === "loading") return <p>Loading...</p>;
+  if (state === "setup") return <Setup onComplete={reload} />;
+  if (state === "login") return <Login onSuccess={reload} />;
+  return <>{children(state.me)}</>;
 }
