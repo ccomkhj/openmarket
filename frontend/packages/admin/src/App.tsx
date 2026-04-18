@@ -5,8 +5,17 @@ import { AnalyticsPage } from "./pages/AnalyticsPage";
 import { CustomersPage } from "./pages/CustomersPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { baseStyles, colors, ToastProvider } from "@openmarket/shared";
+import { RequireAuth } from "./components/RequireAuth";
 
 export function App() {
+  return (
+    <RequireAuth>
+      {(_me) => <AdminShell />}
+    </RequireAuth>
+  );
+}
+
+function AdminShell() {
   const location = useLocation();
   const linkStyle = (path: string) => ({
     ...baseStyles.navLink,
