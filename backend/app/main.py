@@ -4,14 +4,19 @@ from contextlib import asynccontextmanager
 
 from pathlib import Path
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import Depends, FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 
-from app.database import engine, Base
+from app.api.deps import get_db
+
+from app.database import engine, Base, async_session
 from app.config import settings
+from app.services.session import get_active_session
 from app.api.products import router as products_router
 from app.api.collections import router as collections_router
 from app.api.inventory import router as inventory_router
@@ -89,8 +94,31 @@ async def health():
     return {"status": "ok"}
 
 
+@app.get("/api/ws")
+async def websocket_http_probe(request: Request, db: AsyncSession = Depends(get_db)):
+    # Guard the ws path at the HTTP layer so unauthenticated upgrade attempts
+    # get a clean 401 instead of being silently handed to the ws handler.
+    sid = request.cookies.get(settings.session_cookie_name)
+    if not sid:
+        return Response(status_code=401)
+    sess = await get_active_session(db, sid)
+    if not sess:
+        return Response(status_code=401)
+    # Authed HTTP GET (no real ws handshake) — tell the client to upgrade.
+    return Response(status_code=426)
+
+
 @app.websocket("/api/ws")
 async def websocket_endpoint(websocket: WebSocket):
+    sid = websocket.cookies.get(settings.session_cookie_name)
+    if not sid:
+        await websocket.close(code=1008)
+        return
+    async with async_session() as db:
+        sess = await get_active_session(db, sid)
+    if not sess:
+        await websocket.close(code=1008)
+        return
     await manager.connect(websocket)
     try:
         while True:
