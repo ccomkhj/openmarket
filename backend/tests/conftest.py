@@ -9,10 +9,14 @@ import sqlalchemy as sa  # noqa: E402
 from httpx import ASGITransport, AsyncClient  # noqa: E402
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine  # noqa: E402
 
+from app.config import settings  # noqa: E402
 from app.database import Base  # noqa: E402
 from app.main import app  # noqa: E402
 from app.api.deps import get_db  # noqa: E402
 from app.models import *  # noqa: F401, F403, E402
+from app.models import User  # noqa: E402
+from app.services.password import hash_password, hash_pin  # noqa: E402
+from app.services.session import create_session  # noqa: E402
 
 TEST_DB_URL = "postgresql+asyncpg://openmarket:openmarket@localhost:5433/openmarket_test"
 
@@ -75,3 +79,66 @@ async def client(db):
     async with AsyncClient(transport=transport, base_url="https://test") as c:
         yield c
     app.dependency_overrides.clear()
+
+
+@pytest_asyncio.fixture
+async def owner(db):
+    u = User(
+        email="owner@test.local",
+        password_hash=hash_password("test-owner-passphrase-1"),
+        full_name="Test Owner",
+        role="owner",
+    )
+    db.add(u)
+    await db.flush()
+    await db.commit()
+    return u
+
+
+@pytest_asyncio.fixture
+async def manager(db):
+    u = User(
+        email="manager@test.local",
+        password_hash=hash_password("test-manager-passphrase-1"),
+        full_name="Test Manager",
+        role="manager",
+    )
+    db.add(u)
+    await db.flush()
+    await db.commit()
+    return u
+
+
+@pytest_asyncio.fixture
+async def cashier(db):
+    u = User(
+        email=None,
+        password_hash=None,
+        pin_hash=hash_pin("1234"),
+        full_name="Test Cashier",
+        role="cashier",
+    )
+    db.add(u)
+    await db.flush()
+    await db.commit()
+    return u
+
+
+@pytest_asyncio.fixture
+async def authed_client(client, db, owner):
+    sess = await create_session(
+        db, user_id=owner.id, ip="127.0.0.1", user_agent="test", ttl_minutes=60,
+    )
+    await db.commit()
+    client.cookies.set(settings.session_cookie_name, sess.id)
+    yield client
+
+
+@pytest_asyncio.fixture
+async def cashier_client(client, db, cashier):
+    sess = await create_session(
+        db, user_id=cashier.id, ip="127.0.0.1", user_agent="test", ttl_minutes=60,
+    )
+    await db.commit()
+    client.cookies.set(settings.session_cookie_name, sess.id)
+    yield client
