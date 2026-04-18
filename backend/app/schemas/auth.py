@@ -47,3 +47,21 @@ class MeResponse(BaseModel):
 
 class BootstrapStatus(BaseModel):
     setup_required: bool
+
+
+class UserCreate(BaseModel):
+    email: str | None = None
+    password: str | None = None
+    pin: str | None = None
+    full_name: str
+    role: str
+
+
+class UserOut(BaseModel):
+    id: int
+    email: str | None
+    full_name: str
+    role: str
+    active: bool
+    created_at: str | None = None
+    last_login_at: str | None = None

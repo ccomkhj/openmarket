@@ -5,6 +5,7 @@ import { AnalyticsPage } from "./pages/AnalyticsPage";
 import { CustomersPage } from "./pages/CustomersPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { Security } from "./pages/Security";
+import { Users } from "./pages/Users";
 import { baseStyles, colors, ToastProvider, type Me } from "@openmarket/shared";
 import { RequireAuth } from "./components/RequireAuth";
 
@@ -25,6 +26,7 @@ function AdminShell({ me }: { me: Me }) {
   });
 
   const canSeeSecurity = me.role === "owner" || me.role === "manager";
+  const canSeeUsers = me.role === "owner";
 
   return (
   <ToastProvider>
@@ -40,6 +42,9 @@ function AdminShell({ me }: { me: Me }) {
         {canSeeSecurity && (
           <Link to="/security" style={linkStyle("/security")}>Security</Link>
         )}
+        {canSeeUsers && (
+          <Link to="/users" style={linkStyle("/users")}>Users</Link>
+        )}
       </nav>
       <Routes>
         <Route path="/" element={<Navigate to="/analytics" replace />} />
@@ -49,6 +54,7 @@ function AdminShell({ me }: { me: Me }) {
         <Route path="/customers" element={<CustomersPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/security" element={<Security />} />
+        <Route path="/users" element={<Users />} />
       </Routes>
     </div>
   </ToastProvider>

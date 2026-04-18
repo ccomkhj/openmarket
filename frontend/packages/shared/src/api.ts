@@ -115,4 +115,28 @@ export const api = {
     orders: (id: number) =>
       request<import("./types").OrderListItem[]>(`/customers/${id}/orders`),
   },
+  users: {
+    list: () => request<Array<{
+      id: number;
+      email: string | null;
+      full_name: string;
+      role: "owner" | "manager" | "cashier";
+      active: boolean;
+      created_at: string | null;
+      last_login_at: string | null;
+    }>>("/users"),
+    create: (data: {
+      email?: string | null;
+      password?: string | null;
+      pin?: string | null;
+      full_name: string;
+      role: "owner" | "manager" | "cashier";
+    }) => request<{
+      id: number; email: string | null; full_name: string; role: string; active: boolean;
+    }>("/users", { method: "POST", body: JSON.stringify(data) }),
+    deactivate: (id: number) => request<{ id: number; active: boolean }>(
+      `/users/${id}/deactivate`,
+      { method: "PATCH" },
+    ),
+  },
 };
