@@ -43,6 +43,13 @@ class ProductVariant(Base):
     compare_at_price = Column(Numeric(10, 2), nullable=True)
     position = Column(Integer, default=0)
 
+    pricing_type = Column(String, nullable=False, default="fixed")
+    weight_unit = Column(String, nullable=True)
+    min_weight_kg = Column(Numeric(10, 3), nullable=True)
+    max_weight_kg = Column(Numeric(10, 3), nullable=True)
+    tare_kg = Column(Numeric(10, 3), nullable=True)
+    barcode_format = Column(String, nullable=False, default="standard")
+
     product = relationship("Product", back_populates="variants")
     inventory_item = relationship("InventoryItem", back_populates="variant", uselist=False, cascade="all, delete-orphan")
 

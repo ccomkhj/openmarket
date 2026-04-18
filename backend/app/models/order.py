@@ -71,6 +71,7 @@ class LineItem(Base):
     variant_id = Column(Integer, ForeignKey("product_variants.id"), nullable=False)
     title = Column(String, nullable=False)
     quantity = Column(Integer, nullable=False)
+    quantity_kg = Column(Numeric(10, 3), nullable=True)
     price = Column(Numeric(10, 2), nullable=False)
 
     order = relationship("Order", back_populates="line_items")
