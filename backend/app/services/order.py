@@ -24,6 +24,19 @@ from app.ws.manager import manager
 _order_counter = itertools.count(1001)
 
 
+def _line_total(li: "LineItem") -> Decimal:
+    """The total charged for this line.
+
+    For by_weight variants, LineItem.price stores the already-computed
+    total (see Task 19 of the Foundation plan: `line_price = compute_weighed_line_price(...)`).
+    For fixed items, LineItem.price stores the unit price and the total
+    is unit × quantity. This helper centralises that asymmetry.
+    """
+    if li.quantity_kg is not None:
+        return li.price
+    return li.price * li.quantity
+
+
 async def create_order(
     db: AsyncSession,
     source: str,

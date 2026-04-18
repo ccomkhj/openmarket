@@ -1,7 +1,8 @@
 from datetime import datetime
 from decimal import Decimal
+from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 
 
 class LineItemCreate(BaseModel):
@@ -17,8 +18,29 @@ class LineItemOut(BaseModel):
     quantity: int
     quantity_kg: Decimal | None = None
     price: Decimal
+    line_total: Decimal
 
     model_config = {"from_attributes": True}
+
+    @model_validator(mode="before")
+    @classmethod
+    def _populate_line_total(cls, data: Any) -> Any:
+        # When validating from an ORM LineItem (from_attributes), compute
+        # line_total from the ORM fields so clients don't have to recompute.
+        # For by_weight lines LineItem.price stores the already-computed total;
+        # for fixed lines it stores the unit price.
+        if isinstance(data, dict):
+            return data
+        if hasattr(data, "price") and hasattr(data, "quantity"):
+            from app.services.order import _line_total
+
+            # Attach as attribute so Pydantic's from_attributes pass picks it up.
+            try:
+                if getattr(data, "line_total", None) is None:
+                    object.__setattr__(data, "line_total", _line_total(data))
+            except (AttributeError, TypeError):
+                pass
+        return data
 
 
 class OrderCreate(BaseModel):
