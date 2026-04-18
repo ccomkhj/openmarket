@@ -7,6 +7,7 @@ from pydantic import BaseModel
 class LineItemCreate(BaseModel):
     variant_id: int
     quantity: int
+    quantity_kg: Decimal | None = None
 
 
 class LineItemOut(BaseModel):
@@ -14,6 +15,7 @@ class LineItemOut(BaseModel):
     variant_id: int
     title: str
     quantity: int
+    quantity_kg: Decimal | None = None
     price: Decimal
 
     model_config = {"from_attributes": True}

@@ -10,6 +10,10 @@ from app.models.inventory import InventoryItem
 from app.models.order import Order, LineItem
 from app.models.product import ProductVariant
 from app.models.tax_shipping import TaxRate, ShippingMethod
+from app.services.weighed import (
+    validate_weighed_line,
+    compute_weighed_line_price,
+)
 from app.ws.manager import manager
 
 _order_counter = itertools.count(1001)
@@ -51,21 +55,41 @@ async def create_order(
             select(ProductVariant).where(ProductVariant.id == item_data["variant_id"])
         )
         variant = variant_result.scalar_one()
-        line_total = Decimal(str(variant.price)) * item_data["quantity"]
+
+        raw_quantity_kg = item_data.get("quantity_kg")
+        quantity_kg = (
+            Decimal(str(raw_quantity_kg)) if raw_quantity_kg is not None else None
+        )
+        validate_weighed_line(variant=variant, quantity_kg=quantity_kg)
+
+        if variant.pricing_type == "by_weight":
+            line_price = compute_weighed_line_price(
+                variant=variant, quantity_kg=quantity_kg
+            )
+            qty = 1
+            qty_kg = quantity_kg
+            line_total = line_price
+        else:
+            line_total = Decimal(str(variant.price)) * item_data["quantity"]
+            line_price = variant.price
+            qty = item_data["quantity"]
+            qty_kg = None
+
         subtotal += line_total
 
         line_items.append(LineItem(
             variant_id=variant.id,
             title=f"{variant.product_id}:{variant.title}",
-            quantity=item_data["quantity"],
-            price=variant.price,
+            quantity=qty,
+            quantity_kg=qty_kg,
+            price=line_price,
         ))
 
         inv_result = await db.execute(
             select(InventoryItem).where(InventoryItem.variant_id == variant.id)
         )
         inv_item = inv_result.scalar_one()
-        inventory_adjustments.append((inv_item.id, -item_data["quantity"]))
+        inventory_adjustments.append((inv_item.id, -qty))
 
     for inv_item_id, delta in inventory_adjustments:
         result = await db.execute(

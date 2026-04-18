@@ -7,6 +7,11 @@ from app.api.deps import get_db, require_any_staff
 from app.models.order import Order
 from app.schemas.order import OrderCreate, OrderUpdate, OrderOut, OrderListOut
 from app.services.order import create_order
+from app.services.weighed import (
+    WeightMissingError,
+    WeightOutOfRangeError,
+    PricingTypeMismatchError,
+)
 
 router = APIRouter(
     prefix="/api",
@@ -28,6 +33,8 @@ async def create(body: OrderCreate, db: AsyncSession = Depends(get_db)):
             shipping_address=body.shipping_address,
             shipping_method_id=body.shipping_method_id,
         )
+    except (WeightMissingError, WeightOutOfRangeError, PricingTypeMismatchError) as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except ValueError as e:
         raise HTTPException(status_code=409, detail=str(e))
     return order

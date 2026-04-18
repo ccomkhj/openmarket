@@ -18,6 +18,12 @@ class VariantCreate(BaseModel):
     price: Decimal
     compare_at_price: Decimal | None = None
     position: int = 0
+    pricing_type: str = "fixed"
+    weight_unit: str | None = None
+    min_weight_kg: Decimal | None = None
+    max_weight_kg: Decimal | None = None
+    tare_kg: Decimal | None = None
+    barcode_format: str = "standard"
 
 
 class VariantUpdate(BaseModel):
@@ -27,6 +33,12 @@ class VariantUpdate(BaseModel):
     price: Decimal | None = None
     compare_at_price: Decimal | None = None
     position: int | None = None
+    pricing_type: str | None = None
+    weight_unit: str | None = None
+    min_weight_kg: Decimal | None = None
+    max_weight_kg: Decimal | None = None
+    tare_kg: Decimal | None = None
+    barcode_format: str | None = None
 
 
 class VariantOut(BaseModel):
@@ -38,6 +50,12 @@ class VariantOut(BaseModel):
     price: Decimal
     compare_at_price: Decimal | None
     position: int
+    pricing_type: str = "fixed"
+    weight_unit: str | None = None
+    min_weight_kg: Decimal | None = None
+    max_weight_kg: Decimal | None = None
+    tare_kg: Decimal | None = None
+    barcode_format: str = "standard"
 
     model_config = {"from_attributes": True}
 
