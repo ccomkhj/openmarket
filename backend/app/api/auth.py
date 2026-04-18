@@ -28,10 +28,29 @@ POS_TTL_MIN = 14 * 60
 
 
 def _client_ip(request: Request) -> str:
-    fwd = request.headers.get("X-Forwarded-For")
-    if fwd:
-        return fwd.split(",")[0].strip()
-    return request.client.host if request.client else "0.0.0.0"
+    """Return the true client IP.
+
+    Trusts `X-Forwarded-For` ONLY when the direct caller (request.client.host)
+    falls within `settings.trusted_proxy_cidrs`. Otherwise uses the direct caller.
+    This prevents an attacker on an open internet path from spoofing a LAN IP
+    via a forged header.
+    """
+    direct = request.client.host if request.client else "0.0.0.0"
+    try:
+        direct_addr = ipaddress.ip_address(direct)
+    except ValueError:
+        return direct
+    trusted = [ipaddress.ip_network(c) for c in settings.trusted_proxy_cidr_list]
+    if any(direct_addr in net for net in trusted):
+        fwd = request.headers.get("X-Forwarded-For")
+        if fwd:
+            first = fwd.split(",")[0].strip()
+            try:
+                ipaddress.ip_address(first)
+                return first
+            except ValueError:
+                pass
+    return direct
 
 
 def _ip_is_lan(ip: str) -> bool:
