@@ -43,6 +43,8 @@ export const api = {
   variants: {
     lookup: (barcode: string) =>
       request<import("./types").VariantLookup>(`/variants/lookup?barcode=${encodeURIComponent(barcode)}`),
+    update: (id: number, data: Record<string, unknown>) =>
+      request<import("./types").ProductVariant>(`/variants/${id}`, { method: "PUT", body: JSON.stringify(data) }),
   },
   collections: {
     list: () => request<import("./types").Collection[]>("/collections"),
