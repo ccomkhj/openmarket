@@ -1,3 +1,6 @@
+import hashlib
+
+import httpx
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
 
@@ -45,3 +48,30 @@ def verify_pin(plain: str, hashed: str) -> bool:
         return _hasher.verify(hashed, plain)
     except VerifyMismatchError:
         return False
+
+
+class PasswordBreachedError(ValueError):
+    pass
+
+
+async def _hibp_get(prefix: str) -> httpx.Response:
+    async with httpx.AsyncClient(timeout=3.0) as client:
+        return await client.get(f"https://api.pwnedpasswords.com/range/{prefix}")
+
+
+async def check_password_not_breached(plain: str) -> None:
+    """Raise PasswordBreachedError if the password appears in HIBP, no-op on network error."""
+    if not settings.hibp_enabled:
+        return
+    digest = hashlib.sha1(plain.encode("utf-8")).hexdigest().upper()
+    prefix, suffix = digest[:5], digest[5:]
+    try:
+        resp = await _hibp_get(prefix)
+    except (OSError, httpx.HTTPError):
+        return
+    if resp.status_code != 200:
+        return
+    for line in resp.text.splitlines():
+        hash_suffix, _count = line.split(":", 1)
+        if hash_suffix.strip() == suffix:
+            raise PasswordBreachedError("password appears in breach corpus")
