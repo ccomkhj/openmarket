@@ -122,12 +122,12 @@ export function SalePage() {
   };
 
   const removeItemAt = (index: number) => setSaleItems((prev) => prev.filter((_, idx) => idx !== index));
-  const lineTotal = (item: SaleItem) => {
+  const liveLineTotal = (item: SaleItem): number => {
     const price = parseFloat(item.variant.price);
-    if (item.quantityKg) return price * parseFloat(item.quantityKg);
-    return price * item.quantity;
+    if (item.quantityKg != null) return parseFloat(item.quantityKg) * price;
+    return (item.quantity ?? 1) * price;
   };
-  const total = saleItems.reduce((sum, item) => sum + lineTotal(item), 0);
+  const total = saleItems.reduce((sum, item) => sum + liveLineTotal(item), 0);
 
   const voidSale = () => setConfirmVoid(true);
   const doVoidSale = () => { setSaleItems([]); setConfirmVoid(false); toast("Sale voided"); barcodeRef.current?.focus(); };
@@ -143,13 +143,19 @@ export function SalePage() {
           return line;
         }),
       });
-      const receiptItems: ReceiptItem[] = saleItems.map((i) => ({
-        productTitle: i.productTitle,
-        variantTitle: i.quantityKg ? `${i.variant.title} (${i.quantityKg} kg)` : i.variant.title,
-        quantity: i.quantity,
-        price: i.variant.price,
-      }));
-      const receiptTotal = saleItems.reduce((sum, i) => sum + lineTotal(i), 0);
+      const serverLines = order.line_items ?? [];
+      const receiptItems: ReceiptItem[] = saleItems.map((i, idx) => {
+        const serverLine = serverLines[idx];
+        return {
+          productTitle: i.productTitle,
+          variantTitle: i.quantityKg ? `${i.variant.title} (${i.quantityKg} kg)` : i.variant.title,
+          quantity: i.quantity,
+          price: i.variant.price,
+          quantity_kg: i.quantityKg ?? null,
+          line_total: serverLine?.line_total ?? null,
+        };
+      });
+      const receiptTotal = saleItems.reduce((sum, i) => sum + liveLineTotal(i), 0);
       setSaleItems([]);
       setReceiptData({ orderNumber: String(order.order_number), items: receiptItems, total: receiptTotal });
       toast("Sale completed");
@@ -212,7 +218,7 @@ export function SalePage() {
               <div style={{ flex: 1 }}>
                 <div style={{ fontWeight: 600, fontSize: "14px" }}>{item.productTitle}</div>
                 <div style={{ color: colors.textSecondary, fontSize: "13px" }}>
-                  {item.variant.title} &middot; {item.quantityKg ? `${item.quantityKg} kg @ $${item.variant.price}/kg = $${lineTotal(item).toFixed(2)}` : `$${item.variant.price}`}
+                  {item.variant.title} &middot; {item.quantityKg ? `${item.quantityKg} kg @ $${item.variant.price}/kg = $${liveLineTotal(item).toFixed(2)}` : `$${item.variant.price}`}
                 </div>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>

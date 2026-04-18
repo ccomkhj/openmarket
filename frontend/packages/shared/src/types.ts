@@ -82,6 +82,7 @@ export interface LineItem {
   quantity: number;
   quantity_kg?: string | null;
   price: string;
+  line_total?: string | null;
 }
 
 export interface Order {

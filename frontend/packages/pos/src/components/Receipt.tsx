@@ -5,6 +5,8 @@ export interface ReceiptItem {
   variantTitle: string;
   quantity: number;
   price: string;
+  quantity_kg?: string | null;
+  line_total?: string | null;
 }
 
 interface ReceiptProps {
@@ -14,8 +16,22 @@ interface ReceiptProps {
   onClose: () => void;
 }
 
+function lineTotal(item: ReceiptItem): string {
+  if (item.line_total != null) return item.line_total;
+  if (item.quantity_kg != null) {
+    const kg = parseFloat(item.quantity_kg);
+    const perKg = parseFloat(item.price);
+    return (kg * perKg).toFixed(2);
+  }
+  const qty = item.quantity ?? 1;
+  const unit = parseFloat(item.price);
+  return (qty * unit).toFixed(2);
+}
+
 export function Receipt({ orderNumber, items, total, onClose }: ReceiptProps) {
   const timestamp = new Date().toLocaleString();
+  const computedTotal = items.reduce((sum, item) => sum + parseFloat(lineTotal(item)), 0);
+  const displayTotal = Number.isFinite(total) && total > 0 ? total : computedTotal;
 
   return (
     <>
@@ -73,7 +89,7 @@ export function Receipt({ orderNumber, items, total, onClose }: ReceiptProps) {
           {/* Line Items */}
           <div style={{ borderTop: `1px solid ${colors.border}`, paddingTop: spacing.md, marginBottom: spacing.md }}>
             {items.map((item, idx) => {
-              const lineTotal = (parseFloat(item.price) * item.quantity).toFixed(2);
+              const itemTotal = lineTotal(item);
               return (
                 <div
                   key={idx}
@@ -88,10 +104,14 @@ export function Receipt({ orderNumber, items, total, onClose }: ReceiptProps) {
                   <div style={{ flex: 1 }}>
                     <div style={{ fontWeight: 600 }}>{item.productTitle}</div>
                     <div style={{ color: colors.textSecondary, fontSize: "12px" }}>
-                      {item.variantTitle} × {item.quantity} @ ${item.price}
+                      {item.variantTitle}
+                      {" · "}
+                      {item.quantity_kg != null
+                        ? <>{item.quantity_kg} kg × {item.price} €/kg</>
+                        : <>{item.quantity ?? 1} × {item.price}</>}
                     </div>
                   </div>
-                  <div style={{ fontWeight: 600, marginLeft: spacing.md }}>${lineTotal}</div>
+                  <div style={{ fontWeight: 600, marginLeft: spacing.md }}>${itemTotal}</div>
                 </div>
               );
             })}
@@ -107,7 +127,7 @@ export function Receipt({ orderNumber, items, total, onClose }: ReceiptProps) {
             marginBottom: spacing.md,
           }}>
             <span style={{ fontWeight: 700, fontSize: "16px" }}>Total</span>
-            <span style={{ fontWeight: 700, fontSize: "24px" }}>${total.toFixed(2)}</span>
+            <span style={{ fontWeight: 700, fontSize: "24px" }}>${displayTotal.toFixed(2)}</span>
           </div>
 
           {/* Thank You */}
