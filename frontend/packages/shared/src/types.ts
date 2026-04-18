@@ -7,6 +7,12 @@ export interface ProductVariant {
   price: string;
   compare_at_price: string | null;
   position: number;
+  pricing_type?: string;
+  weight_unit?: "kg" | "g" | "100g" | null;
+  min_weight_kg?: string | null;
+  max_weight_kg?: string | null;
+  tare_kg?: string | null;
+  barcode_format?: string;
 }
 
 export interface ProductImage {
@@ -74,6 +80,7 @@ export interface LineItem {
   variant_id: number;
   title: string;
   quantity: number;
+  quantity_kg?: string | null;
   price: string;
 }
 
@@ -140,6 +147,12 @@ export interface VariantLookup {
   barcode: string;
   price: string;
   compare_at_price: string | null;
+  pricing_type?: string;
+  weight_unit?: "kg" | "g" | "100g" | null;
+  min_weight_kg?: string | null;
+  max_weight_kg?: string | null;
+  tare_kg?: string | null;
+  barcode_format?: string;
 }
 
 export interface DailySales {

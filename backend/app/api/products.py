@@ -128,6 +128,12 @@ async def lookup_variant_by_barcode(barcode: str, db: AsyncSession = Depends(get
         barcode=variant.barcode,
         price=variant.price,
         compare_at_price=variant.compare_at_price,
+        pricing_type=variant.pricing_type,
+        weight_unit=variant.weight_unit,
+        min_weight_kg=variant.min_weight_kg,
+        max_weight_kg=variant.max_weight_kg,
+        tare_kg=variant.tare_kg,
+        barcode_format=variant.barcode_format,
     )
 
 

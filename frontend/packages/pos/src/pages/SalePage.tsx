@@ -4,9 +4,17 @@ import type { ProductVariant } from "@openmarket/shared";
 import { Receipt } from "../components/Receipt";
 import type { ReceiptItem } from "../components/Receipt";
 import { ReturnModal } from "../components/ReturnModal";
+import { WeighedProductInput } from "../components/WeighedProductInput";
 
-interface SaleItem { variant: ProductVariant; productTitle: string; quantity: number; }
+interface SaleItem {
+  variant: ProductVariant;
+  productTitle: string;
+  quantity: number;
+  quantityKg?: string;
+}
 interface ReceiptData { orderNumber: string; items: ReceiptItem[]; total: number; }
+
+interface WeighedPrompt { variant: ProductVariant; productTitle: string; }
 
 export function SalePage() {
   const [barcodeInput, setBarcodeInput] = useState("");
@@ -20,6 +28,7 @@ export function SalePage() {
   const [showReturn, setShowReturn] = useState(false);
   const { toast } = useToast();
   const [confirmVoid, setConfirmVoid] = useState(false);
+  const [weighedPrompt, setWeighedPrompt] = useState<WeighedPrompt | null>(null);
 
   useEffect(() => { barcodeRef.current?.focus(); }, []);
 
@@ -29,7 +38,8 @@ export function SalePage() {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        if (receiptData) { setReceiptData(null); barcodeRef.current?.focus(); }
+        if (weighedPrompt) { setWeighedPrompt(null); }
+        else if (receiptData) { setReceiptData(null); barcodeRef.current?.focus(); }
         else if (error) { setError(""); }
         else if (showReturn) { setShowReturn(false); }
         return;
@@ -52,7 +62,7 @@ export function SalePage() {
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [saleItems.length, receiptData, error, showReturn]);
+  }, [saleItems.length, receiptData, error, showReturn, weighedPrompt]);
 
   const addByBarcode = async (barcode: string) => {
     setError("");
@@ -62,6 +72,12 @@ export function SalePage() {
         id: result.id, product_id: result.product_id, title: result.title,
         sku: result.sku, barcode: result.barcode, price: result.price,
         compare_at_price: result.compare_at_price, position: 0,
+        pricing_type: result.pricing_type,
+        weight_unit: result.weight_unit,
+        min_weight_kg: result.min_weight_kg,
+        max_weight_kg: result.max_weight_kg,
+        tare_kg: result.tare_kg,
+        barcode_format: result.barcode_format,
       });
       setBarcodeInput("");
     } catch {
@@ -77,21 +93,41 @@ export function SalePage() {
   };
 
   const addToSale = (productTitle: string, variant: ProductVariant) => {
+    if (variant.pricing_type === "by_weight") {
+      setWeighedPrompt({ variant, productTitle });
+      setSearchResults([]);
+      setSearchInput("");
+      return;
+    }
     setSaleItems((prev) => {
-      const existing = prev.find((i) => i.variant.id === variant.id);
-      if (existing) return prev.map((i) => i.variant.id === variant.id ? { ...i, quantity: i.quantity + 1 } : i);
+      const existing = prev.find((i) => i.variant.id === variant.id && !i.quantityKg);
+      if (existing) return prev.map((i) => i.variant.id === variant.id && !i.quantityKg ? { ...i, quantity: i.quantity + 1 } : i);
       return [...prev, { variant, productTitle, quantity: 1 }];
     });
     setSearchResults([]); setSearchInput(""); barcodeRef.current?.focus();
   };
 
-  const updateQty = (variantId: number, qty: number) => {
-    if (qty <= 0) { setSaleItems((prev) => prev.filter((i) => i.variant.id !== variantId)); return; }
-    setSaleItems((prev) => prev.map((i) => i.variant.id === variantId ? { ...i, quantity: qty } : i));
+  const addWeighedToSale = (productTitle: string, variant: ProductVariant, quantityKg: number) => {
+    const qtyKgStr = quantityKg.toFixed(3);
+    setSaleItems((prev) => [
+      ...prev,
+      { variant, productTitle, quantity: 1, quantityKg: qtyKgStr },
+    ]);
+    barcodeRef.current?.focus();
   };
 
-  const removeItem = (variantId: number) => setSaleItems((prev) => prev.filter((i) => i.variant.id !== variantId));
-  const total = saleItems.reduce((sum, item) => sum + parseFloat(item.variant.price) * item.quantity, 0);
+  const updateQty = (variantId: number, qty: number) => {
+    if (qty <= 0) { setSaleItems((prev) => prev.filter((i) => i.variant.id !== variantId || i.quantityKg)); return; }
+    setSaleItems((prev) => prev.map((i) => i.variant.id === variantId && !i.quantityKg ? { ...i, quantity: qty } : i));
+  };
+
+  const removeItemAt = (index: number) => setSaleItems((prev) => prev.filter((_, idx) => idx !== index));
+  const lineTotal = (item: SaleItem) => {
+    const price = parseFloat(item.variant.price);
+    if (item.quantityKg) return price * parseFloat(item.quantityKg);
+    return price * item.quantity;
+  };
+  const total = saleItems.reduce((sum, item) => sum + lineTotal(item), 0);
 
   const voidSale = () => setConfirmVoid(true);
   const doVoidSale = () => { setSaleItems([]); setConfirmVoid(false); toast("Sale voided"); barcodeRef.current?.focus(); };
@@ -99,14 +135,21 @@ export function SalePage() {
   const completeSale = async () => {
     setError("");
     try {
-      const order = await api.orders.create({ source: "pos", line_items: saleItems.map((i) => ({ variant_id: i.variant.id, quantity: i.quantity })) });
+      const order = await api.orders.create({
+        source: "pos",
+        line_items: saleItems.map((i) => {
+          const line: Record<string, unknown> = { variant_id: i.variant.id, quantity: i.quantity };
+          if (i.quantityKg) line.quantity_kg = i.quantityKg;
+          return line;
+        }),
+      });
       const receiptItems: ReceiptItem[] = saleItems.map((i) => ({
         productTitle: i.productTitle,
-        variantTitle: i.variant.title,
+        variantTitle: i.quantityKg ? `${i.variant.title} (${i.quantityKg} kg)` : i.variant.title,
         quantity: i.quantity,
         price: i.variant.price,
       }));
-      const receiptTotal = saleItems.reduce((sum, i) => sum + parseFloat(i.variant.price) * i.quantity, 0);
+      const receiptTotal = saleItems.reduce((sum, i) => sum + lineTotal(i), 0);
       setSaleItems([]);
       setReceiptData({ orderNumber: String(order.order_number), items: receiptItems, total: receiptTotal });
       toast("Sale completed");
@@ -160,25 +203,35 @@ export function SalePage() {
         <div style={{ flex: 1, overflowY: "auto" }}>
           {saleItems.length === 0 ? (
             <div style={{ textAlign: "center", padding: spacing.xl, color: colors.textDisabled }}>No items scanned</div>
-          ) : saleItems.map((item) => (
-            <div key={item.variant.id} style={{
+          ) : saleItems.map((item, idx) => (
+            <div key={`${item.variant.id}-${idx}`} style={{
               display: "flex", justifyContent: "space-between", alignItems: "center",
               padding: "10px 12px", marginBottom: "6px",
               background: colors.surface, borderRadius: radius.sm, border: `1px solid ${colors.border}`,
             }}>
               <div style={{ flex: 1 }}>
                 <div style={{ fontWeight: 600, fontSize: "14px" }}>{item.productTitle}</div>
-                <div style={{ color: colors.textSecondary, fontSize: "13px" }}>{item.variant.title} &middot; ${item.variant.price}</div>
+                <div style={{ color: colors.textSecondary, fontSize: "13px" }}>
+                  {item.variant.title} &middot; {item.quantityKg ? `${item.quantityKg} kg @ $${item.variant.price}/kg = $${lineTotal(item).toFixed(2)}` : `$${item.variant.price}`}
+                </div>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                <Button variant="secondary" size="sm" onClick={() => updateQty(item.variant.id, item.quantity - 1)}>-</Button>
-                <input
-                  value={item.quantity}
-                  onChange={(e) => { const v = parseInt(e.target.value); if (!isNaN(v)) updateQty(item.variant.id, v); }}
-                  style={{ width: 40, textAlign: "center", padding: "4px", border: `1px solid ${colors.borderStrong}`, borderRadius: radius.sm, fontSize: "14px", fontWeight: 600 }}
-                />
-                <Button variant="secondary" size="sm" onClick={() => updateQty(item.variant.id, item.quantity + 1)}>+</Button>
-                <Button variant="ghost" size="sm" onClick={() => removeItem(item.variant.id)} style={{ color: colors.danger }}>&#10005;</Button>
+                {item.quantityKg ? (
+                  <span style={{ fontWeight: 600, fontSize: "14px", padding: "4px 8px" }}>
+                    {item.quantityKg} kg
+                  </span>
+                ) : (
+                  <>
+                    <Button variant="secondary" size="sm" onClick={() => updateQty(item.variant.id, item.quantity - 1)}>-</Button>
+                    <input
+                      value={item.quantity}
+                      onChange={(e) => { const v = parseInt(e.target.value); if (!isNaN(v)) updateQty(item.variant.id, v); }}
+                      style={{ width: 40, textAlign: "center", padding: "4px", border: `1px solid ${colors.borderStrong}`, borderRadius: radius.sm, fontSize: "14px", fontWeight: 600 }}
+                    />
+                    <Button variant="secondary" size="sm" onClick={() => updateQty(item.variant.id, item.quantity + 1)}>+</Button>
+                  </>
+                )}
+                <Button variant="ghost" size="sm" onClick={() => removeItemAt(idx)} style={{ color: colors.danger }}>&#10005;</Button>
               </div>
             </div>
           ))}
@@ -215,6 +268,20 @@ export function SalePage() {
           variant="danger"
           onConfirm={doVoidSale}
           onCancel={() => setConfirmVoid(false)}
+        />
+      )}
+      {weighedPrompt && (
+        <WeighedProductInput
+          title={`${weighedPrompt.productTitle} - ${weighedPrompt.variant.title}`}
+          pricePerKg={weighedPrompt.variant.price}
+          weightUnit={weighedPrompt.variant.weight_unit ?? null}
+          minKg={weighedPrompt.variant.min_weight_kg ?? null}
+          maxKg={weighedPrompt.variant.max_weight_kg ?? null}
+          onConfirm={(kg) => {
+            addWeighedToSale(weighedPrompt.productTitle, weighedPrompt.variant, kg);
+            setWeighedPrompt(null);
+          }}
+          onCancel={() => setWeighedPrompt(null)}
         />
       )}
     </div>

@@ -126,5 +126,11 @@ class VariantLookupOut(BaseModel):
     barcode: str
     price: Decimal
     compare_at_price: Decimal | None
+    pricing_type: str = "fixed"
+    weight_unit: str | None = None
+    min_weight_kg: Decimal | None = None
+    max_weight_kg: Decimal | None = None
+    tare_kg: Decimal | None = None
+    barcode_format: str = "standard"
 
     model_config = {"from_attributes": True}
