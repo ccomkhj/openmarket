@@ -39,3 +39,16 @@ def test_settings_parses_lan_ip_cidrs():
 def test_settings_parses_allowed_cors_origins():
     s = Settings(session_secret_key="x" * 48, allowed_cors_origins="https://a.local,https://b.local, ")
     assert s.allowed_cors_origin_list == ["https://a.local", "https://b.local"]
+
+
+def test_settings_parses_trusted_proxy_cidrs_default():
+    s = Settings(session_secret_key="x" * 48)
+    assert s.trusted_proxy_cidr_list == ["127.0.0.1/32"]
+
+
+def test_settings_parses_trusted_proxy_cidrs_custom():
+    s = Settings(
+        session_secret_key="x" * 48,
+        trusted_proxy_cidrs="127.0.0.1/32, 172.20.0.0/16",
+    )
+    assert s.trusted_proxy_cidr_list == ["127.0.0.1/32", "172.20.0.0/16"]

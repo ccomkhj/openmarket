@@ -19,6 +19,8 @@ class Settings(BaseSettings):
 
     allowed_cors_origins: str = "https://admin.local,https://pos.local,https://store.local"
 
+    trusted_proxy_cidrs: str = "127.0.0.1/32"
+
     first_run_owner_email: str | None = None
     first_run_owner_password: str | None = None
 
@@ -47,6 +49,10 @@ class Settings(BaseSettings):
     @property
     def allowed_cors_origin_list(self) -> list[str]:
         return [s.strip() for s in self.allowed_cors_origins.split(",") if s.strip()]
+
+    @property
+    def trusted_proxy_cidr_list(self) -> list[str]:
+        return [s.strip() for s in self.trusted_proxy_cidrs.split(",") if s.strip()]
 
 
 settings = Settings()
