@@ -1,16 +1,17 @@
 import os
 
+# Must run before any `from app.*` import so Settings() sees a valid secret.
 os.environ.setdefault("SESSION_SECRET_KEY", "x" * 48)
 
-import pytest
-import pytest_asyncio
-from httpx import ASGITransport, AsyncClient
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+import pytest  # noqa: E402
+import pytest_asyncio  # noqa: E402
+from httpx import ASGITransport, AsyncClient  # noqa: E402
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine  # noqa: E402
 
-from app.database import Base
-from app.main import app
-from app.api.deps import get_db
-from app.models import *  # noqa: F401, F403
+from app.database import Base  # noqa: E402
+from app.main import app  # noqa: E402
+from app.api.deps import get_db  # noqa: E402
+from app.models import *  # noqa: F401, F403, E402
 
 TEST_DB_URL = "postgresql+asyncpg://openmarket:openmarket@localhost:5433/openmarket_test"
 

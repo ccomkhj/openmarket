@@ -29,12 +29,24 @@ class Settings(BaseSettings):
     @field_validator("session_secret_key")
     @classmethod
     def _validate_session_secret(cls, v: str) -> str:
-        bad = {"changeme", "secret", "password", "dev", "test"}
-        if v.lower() in bad:
+        lowered = v.lower()
+        exact_bad = {"changeme", "secret", "password", "dev", "test"}
+        if lowered in exact_bad:
             raise ValueError("session_secret_key is an insecure placeholder")
+        substrings_bad = ("change_me", "change me", "changeme")
+        if any(s in lowered for s in substrings_bad):
+            raise ValueError("session_secret_key contains a placeholder substring")
         if len(v) < 32:
             raise ValueError("session_secret_key must be at least 32 characters")
         return v
+
+    @property
+    def lan_ip_cidr_list(self) -> list[str]:
+        return [s.strip() for s in self.lan_ip_cidrs.split(",") if s.strip()]
+
+    @property
+    def allowed_cors_origin_list(self) -> list[str]:
+        return [s.strip() for s in self.allowed_cors_origins.split(",") if s.strip()]
 
 
 settings = Settings()
