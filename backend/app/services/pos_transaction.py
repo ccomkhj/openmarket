@@ -30,6 +30,7 @@ class PosTransactionService:
         cashier_user_id: int,
         payment_breakdown: Mapping[str, Decimal],
         voids_transaction_id: uuid.UUID | None = None,
+        cancelled_attempt: bool = False,
     ) -> PosTransaction:
         """The single TSE-signed sale entry point. Idempotent on client_id."""
         existing = (await self.db.execute(
@@ -42,7 +43,12 @@ class PosTransactionService:
             select(LineItem).where(LineItem.order_id == order_id)
         )).scalars().all()
 
-        vat_breakdown, total_net, total_gross = await self._build_vat_breakdown(line_items)
+        if cancelled_attempt:
+            vat_breakdown: dict[str, dict[str, Decimal]] = {}
+            total_net = Decimal("0")
+            total_gross = Decimal("0")
+        else:
+            vat_breakdown, total_net, total_gross = await self._build_vat_breakdown(line_items)
 
         receipt_number = (await self.db.execute(
             text("SELECT nextval('receipt_number_seq')")
@@ -65,9 +71,16 @@ class PosTransactionService:
         )
         self.db.add(tx)
 
-        for li in line_items:
-            line = _line_from_order_item(li, tx.id)
-            self.db.add(line)
+        if not cancelled_attempt:
+            from app.models import ProductVariant
+            variants = (await self.db.execute(
+                select(ProductVariant).where(ProductVariant.id.in_([li.variant_id for li in line_items]))
+            )).scalars().all()
+            by_id = {v.id: v for v in variants}
+
+            for li in line_items:
+                line = _line_from_order_item(li, tx.id, by_id[li.variant_id])
+                self.db.add(line)
         await self.db.flush()
 
         process_data = build_process_data(
@@ -92,25 +105,34 @@ class PosTransactionService:
         return tx
 
     async def _build_vat_breakdown(
-        self, line_items: list[LineItem],
+        self, line_items,
     ) -> tuple[dict[str, dict[str, Decimal]], Decimal, Decimal]:
-        """Day-1: single rate from default TaxRate. Plan D extends to multi-rate."""
-        default_rate = (await self.db.execute(
-            select(TaxRate).where(TaxRate.is_default.is_(True))
-        )).scalar_one_or_none()
-        rate = default_rate.rate if default_rate else Decimal("0")
-        rate_pct = (rate * 100).quantize(Decimal("0.01"))
-        slot = _rate_to_slot(rate_pct)
+        from app.models import ProductVariant
+        from app.fiscal.vat import VAT_SLOT_BY_PCT
+        variant_ids = [li.variant_id for li in line_items]
+        variants = (await self.db.execute(
+            select(ProductVariant).where(ProductVariant.id.in_(variant_ids))
+        )).scalars().all()
+        by_id = {v.id: v for v in variants}
 
-        total_gross = sum((_gross_for_line(li) for li in line_items), Decimal("0"))
-        total_net = (total_gross / (1 + rate)).quantize(Decimal("0.01")) if rate else total_gross
-        total_vat = (total_gross - total_net).quantize(Decimal("0.01"))
-
-        return (
-            {slot: {"net": total_net, "vat": total_vat, "gross": total_gross}},
-            total_net,
-            total_gross,
-        )
+        slots: dict[str, dict[str, Decimal]] = {}
+        total_gross = Decimal("0")
+        total_net = Decimal("0")
+        for li in line_items:
+            v = by_id[li.variant_id]
+            rate_pct = Decimal(v.vat_rate).quantize(Decimal("0.01"))
+            slot = _rate_to_slot(rate_pct)
+            gross = _gross_for_line(li)
+            rate_frac = rate_pct / Decimal("100")
+            net = (gross / (1 + rate_frac)).quantize(Decimal("0.01"))
+            vat = (gross - net).quantize(Decimal("0.01"))
+            cur = slots.setdefault(slot, {"net": Decimal("0"), "vat": Decimal("0"), "gross": Decimal("0")})
+            cur["net"] += net
+            cur["vat"] += vat
+            cur["gross"] += gross
+            total_gross += gross
+            total_net += net
+        return slots, total_net, total_gross
 
 
 def _rate_to_slot(rate_pct: Decimal) -> str:
@@ -125,22 +147,28 @@ def _gross_for_line(li: LineItem) -> Decimal:
     return (li.price * li.quantity).quantize(Decimal("0.01"))
 
 
-def _line_from_order_item(li: LineItem, pos_tx_id: uuid.UUID) -> PosTransactionLine:
-    line_total = _gross_for_line(li)
+def _line_from_order_item(li, pos_tx_id: uuid.UUID, variant) -> PosTransactionLine:
+    line_total_gross = _gross_for_line(li)
+    rate_pct = Decimal(variant.vat_rate).quantize(Decimal("0.01"))
+    rate_frac = rate_pct / Decimal("100")
+    line_net = (line_total_gross / (1 + rate_frac)).quantize(Decimal("0.01"))
+    line_vat = (line_total_gross - line_net).quantize(Decimal("0.01"))
+
     if li.quantity_kg is not None:
         qty = Decimal("1")
         unit_price = li.price / li.quantity_kg
     else:
         qty = Decimal(li.quantity)
         unit_price = li.price
+
     return PosTransactionLine(
         pos_transaction_id=pos_tx_id,
-        sku=None,
+        sku=variant.sku,
         title=li.title,
         quantity=qty,
         quantity_kg=li.quantity_kg,
         unit_price=unit_price.quantize(Decimal("0.0001")),
-        line_total_net=line_total,
-        vat_rate=Decimal("0"),
-        vat_amount=Decimal("0"),
+        line_total_net=line_net,
+        vat_rate=rate_pct,
+        vat_amount=line_vat,
     )
