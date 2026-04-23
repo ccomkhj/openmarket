@@ -20,3 +20,8 @@ uploads/
 
 # Superpowers
 .superpowers/
+
+# Local ops artifacts
+backups/*.sql.gz
+certs/server.crt
+certs/server.key

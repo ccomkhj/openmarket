@@ -25,19 +25,42 @@ services:
     environment:
       DATABASE_URL: ${DATABASE_URL}
     ports:
-      - "8000:8000"
+      - "8001:8000"
 
   nginx:
     image: nginx:alpine
     ports:
       - "80:80"
+      - "443:443"
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./certs:/etc/nginx/certs:ro
       - ./frontend/packages/store/dist:/usr/share/nginx/html/store:ro
       - ./frontend/packages/admin/dist:/usr/share/nginx/html/admin:ro
       - ./frontend/packages/pos/dist:/usr/share/nginx/html/pos:ro
     depends_on:
       - api
+
+  backup:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      POSTGRES_DB: openmarket
+      POSTGRES_USER: openmarket
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-openmarket}
+    volumes:
+      - ./backups:/backups
+      - ./scripts/backup.sh:/backup.sh:ro
+    entrypoint: ["/bin/sh", "-c"]
+    command: |
+      "chmod +x /backup.sh && \
+       while true; do \
+         /backup.sh || echo 'backup failed'; \
+         sleep 86400; \
+       done"
 
 volumes:
   pgdata:
