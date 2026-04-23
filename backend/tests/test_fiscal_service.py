@@ -62,3 +62,50 @@ async def test_finish_transaction_returns_signature():
     assert finish.time_start == datetime(2025, 4, 18, 16, 53, 20, tzinfo=timezone.utc)
     assert finish.time_end == datetime(2025, 4, 18, 16, 53, 50, tzinfo=timezone.utc)
     assert finish.process_type == "Kassenbeleg-V1"
+
+
+from sqlalchemy import select
+from app.models import TseSigningLog
+from app.fiscal.errors import FiscalServerError
+
+
+def _svc_with_db(db):
+    client = FiscalClient(
+        api_key="k", api_secret="s", tss_id="tss-abc", base_url=BASE,
+        http=httpx.AsyncClient(timeout=5),
+    )
+    return FiscalService(client=client, db=db)
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_signing_log_records_success(db):
+    client_id = uuid.uuid4()
+    mock_auth_ok(respx.mock, BASE)
+    mock_tx_start_ok(respx.mock, "tss-abc", str(client_id), BASE)
+
+    svc = _svc_with_db(db)
+    await svc.start_transaction(client_id=client_id)
+
+    rows = (await db.execute(select(TseSigningLog))).scalars().all()
+    assert len(rows) == 1
+    assert rows[0].operation == "start_transaction"
+    assert rows[0].succeeded is True
+    assert rows[0].error_code is None
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_signing_log_records_failure(db):
+    client_id = uuid.uuid4()
+    mock_auth_ok(respx.mock, BASE)
+    respx.mock.put(f"{BASE}/api/v2/tss/tss-abc/tx/{client_id}").respond(503)
+
+    svc = _svc_with_db(db)
+    with pytest.raises(FiscalServerError):
+        await svc.start_transaction(client_id=client_id)
+
+    rows = (await db.execute(select(TseSigningLog))).scalars().all()
+    assert len(rows) == 1
+    assert rows[0].succeeded is False
+    assert rows[0].error_code == "FISCAL_SERVER"
