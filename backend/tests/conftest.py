@@ -44,6 +44,19 @@ CREATE TRIGGER audit_events_no_delete
     FOR EACH ROW EXECUTE FUNCTION reject_audit_modification()
 """
 
+_FISCAL_REJECT_FN_SQL = """
+CREATE OR REPLACE FUNCTION fiscal_reject_modification() RETURNS trigger AS $$
+BEGIN
+    IF current_setting('fiscal.signing', true) = 'on' THEN
+        RETURN NEW;
+    END IF;
+    RAISE EXCEPTION 'Fiscal rows are immutable (TG_OP=%, table=%)', TG_OP, TG_TABLE_NAME;
+END;
+$$ LANGUAGE plpgsql;
+"""
+
+_FISCAL_TABLES = ("pos_transactions", "pos_transaction_lines", "tse_signing_log")
+
 
 @pytest_asyncio.fixture(autouse=True)
 async def setup_db():
@@ -56,9 +69,23 @@ async def setup_db():
             await conn.execute(sa.text(_TRIGGER_UPDATE_SQL))
             await conn.execute(sa.text(_TRIGGER_DELETE_DROP_SQL))
             await conn.execute(sa.text(_TRIGGER_DELETE_SQL))
+            await conn.execute(sa.text(_FISCAL_REJECT_FN_SQL))
+            for tbl in _FISCAL_TABLES:
+                await conn.execute(sa.text(
+                    f"CREATE TRIGGER {tbl}_reject_update BEFORE UPDATE ON {tbl} "
+                    f"FOR EACH ROW EXECUTE FUNCTION fiscal_reject_modification()"
+                ))
+                await conn.execute(sa.text(
+                    f"CREATE TRIGGER {tbl}_reject_delete BEFORE DELETE ON {tbl} "
+                    f"FOR EACH ROW EXECUTE FUNCTION fiscal_reject_modification()"
+                ))
+            # receipt_number_seq is normally created by Alembic; create here for tests
+            await conn.execute(sa.text("CREATE SEQUENCE IF NOT EXISTS receipt_number_seq START 1"))
         yield engine
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.drop_all)
+            await conn.execute(sa.text("DROP SEQUENCE IF EXISTS receipt_number_seq"))
+            await conn.execute(sa.text("DROP FUNCTION IF EXISTS fiscal_reject_modification()"))
     finally:
         await engine.dispose()
 
