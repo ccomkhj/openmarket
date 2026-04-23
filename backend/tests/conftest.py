@@ -60,7 +60,7 @@ END;
 $$ LANGUAGE plpgsql;
 """
 
-_FISCAL_TABLES = ("pos_transactions", "pos_transaction_lines", "tse_signing_log")
+_FISCAL_TABLES = ("pos_transactions", "pos_transaction_lines", "tse_signing_log", "kassenbuch_entries")
 
 
 @pytest_asyncio.fixture(autouse=True)
