@@ -136,6 +136,43 @@ class FiscalService:
         )
         return result
 
+    async def retry_pending_signatures(self) -> int:
+        """Re-sign every PosTransaction with tse_pending=True. Returns count signed."""
+        from app.models import PosTransaction
+        if self.db is None:
+            raise RuntimeError("retry_pending_signatures requires db session")
+
+        from sqlalchemy import select, text
+        pending = (await self.db.execute(
+            select(PosTransaction).where(PosTransaction.tse_pending.is_(True))
+        )).scalars().all()
+
+        signed = 0
+        for tx in pending:
+            if not tx.tse_process_data:
+                continue
+            try:
+                start = await self.start_transaction(client_id=tx.client_id)
+                finish = await self.finish_transaction(
+                    tx_id=tx.client_id,
+                    latest_revision=start.latest_revision,
+                    process_data=tx.tse_process_data,
+                )
+            except FiscalError:
+                continue
+            await self.db.execute(text("SET LOCAL fiscal.signing = 'on'"))
+            tx.tse_signature = finish.signature
+            tx.tse_signature_counter = finish.signature_counter
+            tx.tse_serial = finish.tss_serial
+            tx.tse_timestamp_start = finish.time_start
+            tx.tse_timestamp_finish = finish.time_end
+            tx.tse_process_type = finish.process_type
+            tx.finished_at = datetime.now(tz=timezone.utc)
+            tx.tse_pending = False
+            await self.db.commit()
+            signed += 1
+        return signed
+
 
 def _b64(s: str) -> str:
     return base64.b64encode(s.encode("utf-8")).decode("ascii")

@@ -109,3 +109,38 @@ async def test_signing_log_records_failure(db):
     assert len(rows) == 1
     assert rows[0].succeeded is False
     assert rows[0].error_code == "FISCAL_SERVER"
+
+
+from app.models import PosTransaction
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_retry_pending_signatures_completes_pending_rows(db):
+    from app.services.password import hash_pin
+    from app.models import User
+    c = User(email=None, password_hash=None, pin_hash=hash_pin("1"),
+             full_name="C", role="cashier")
+    db.add(c); await db.commit(); await db.refresh(c)
+
+    tid = uuid.uuid4()
+    db.add(PosTransaction(
+        id=tid, client_id=tid, cashier_user_id=c.id,
+        started_at=datetime.now(tz=timezone.utc),
+        tse_process_data="Beleg^1.29_0.00_0.00_0.00_0.00^1.29:Bar",
+        receipt_number=1,
+        tse_pending=True,
+    ))
+    await db.commit()
+
+    mock_auth_ok(respx.mock, BASE)
+    mock_tx_start_ok(respx.mock, "tss-abc", str(tid), BASE)
+    mock_tx_finish_ok(respx.mock, "tss-abc", str(tid), BASE, signature="LATE-SIG", signature_counter=5001)
+
+    svc = _svc_with_db(db)
+    n = await svc.retry_pending_signatures()
+    assert n == 1
+
+    refreshed = (await db.execute(select(PosTransaction).where(PosTransaction.id == tid))).scalar_one()
+    assert refreshed.tse_pending is False
+    assert refreshed.tse_signature == "LATE-SIG"

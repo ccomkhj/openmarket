@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 
 from pathlib import Path
 
+import httpx
 from fastapi import Depends, FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
@@ -30,6 +31,8 @@ from app.api.returns import router as returns_router
 from app.api.auth import router as auth_router
 from app.api.users import router as users_router
 from app.ws.manager import manager
+from app.fiscal.client import FiscalClient
+from app.fiscal.service import FiscalService
 
 
 logging.basicConfig(
@@ -56,6 +59,21 @@ class LoggingMiddleware(BaseHTTPMiddleware):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    if settings.fiskaly_api_key:
+        async with async_session() as db:
+            fc = FiscalClient(
+                api_key=settings.fiskaly_api_key,
+                api_secret=settings.fiskaly_api_secret,
+                tss_id=settings.fiskaly_tss_id,
+                base_url=settings.fiskaly_base_url,
+                http=httpx.AsyncClient(timeout=15),
+            )
+            try:
+                n = await FiscalService(client=fc, db=db).retry_pending_signatures()
+                if n:
+                    logger.info("fiscal: re-signed %d pending transactions on startup", n)
+            except Exception as e:
+                logger.warning("fiscal startup retry failed: %s", e)
     yield
 
 
