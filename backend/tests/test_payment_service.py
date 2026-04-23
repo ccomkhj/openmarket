@@ -110,15 +110,20 @@ async def test_pay_card_authorizes_then_signs(db):
 
 @pytest.mark.asyncio
 @respx.mock
-async def test_pay_card_declined_no_pos_transaction(db):
+async def test_pay_card_declined_writes_cancelled_attempt(db):
     order_id, cashier_id = await _setup_order(db)
+    cid = uuid.uuid4()
     mock_auth_ok(respx.mock, BASE)
-
+    mock_tx_start_ok(respx.mock, "tss-abc", str(cid), BASE)
+    mock_tx_finish_ok(respx.mock, "tss-abc", str(cid), BASE,
+                      signature="CSIG", signature_counter=1, tss_serial="SER")
     terminal = MockTerminal(approve=False)
     svc = _service(db, terminal=terminal)
     with pytest.raises(CardDeclinedError):
         await svc.pay_card(
-            client_id=uuid.uuid4(), order_id=order_id, cashier_user_id=cashier_id,
+            client_id=cid, order_id=order_id, cashier_user_id=cashier_id,
         )
     rows = (await db.execute(select(PosTransaction))).scalars().all()
-    assert rows == []
+    assert len(rows) == 1
+    assert rows[0].tse_signature == "CSIG"
+    assert rows[0].payment_breakdown == {}

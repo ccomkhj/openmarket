@@ -72,12 +72,41 @@ class PaymentService:
         order_id: int,
         cashier_user_id: int,
     ) -> PayResult:
+        from datetime import datetime, timezone
+        from app.models import CardAuth
+        from app.payment.errors import CardDeclinedError
+
         total = await self._order_total(order_id)
-        auth = await self.terminal.authorize(amount=total)
-        payment_breakdown = {"girocard": total}
+        try:
+            auth = await self.terminal.authorize(amount=total)
+        except CardDeclinedError as e:
+            tx = await self.pos_tx.finalize_sale(
+                client_id=client_id, order_id=order_id,
+                cashier_user_id=cashier_user_id, payment_breakdown={},
+                cancelled_attempt=True,
+            )
+            self.db.add(CardAuth(
+                pos_transaction_id=tx.id, amount=total, approved=False,
+                response_code=str(getattr(e, "response_code", "")) or "decline",
+                auth_code="", trace_number="", terminal_id=self._terminal_id(),
+                created_at=datetime.now(tz=timezone.utc),
+            ))
+            await self.db.commit()
+            raise
+
         tx = await self.pos_tx.finalize_sale(
             client_id=client_id, order_id=order_id, cashier_user_id=cashier_user_id,
-            payment_breakdown=payment_breakdown,
+            payment_breakdown={"girocard": total},
         )
+        self.db.add(CardAuth(
+            pos_transaction_id=tx.id, amount=total, approved=True,
+            response_code=auth.response_code, auth_code=auth.auth_code,
+            trace_number=auth.trace_number, terminal_id=auth.terminal_id,
+            created_at=datetime.now(tz=timezone.utc),
+        ))
+        await self.db.commit()
         job = await self.receipts.print_receipt(tx.id)
         return PayResult(transaction=tx, receipt_status=job.status)
+
+    def _terminal_id(self) -> str:
+        return getattr(self.terminal, "host", "MOCK") + ":" + str(getattr(self.terminal, "port", "0"))
