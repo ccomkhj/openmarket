@@ -29,10 +29,7 @@ class ReceiptService:
         self.backend = backend
 
     async def print_receipt(self, pos_transaction_id: uuid.UUID) -> ReceiptPrintJob:
-        return await self._print(pos_transaction_id)
-
-    async def reprint(self, pos_transaction_id: uuid.UUID) -> ReceiptPrintJob:
-        """Create a new print job and attempt printing."""
+        """Create a new print job and attempt printing (used for both first print and reprint)."""
         return await self._print(pos_transaction_id)
 
     async def _print(self, pos_transaction_id: uuid.UUID) -> ReceiptPrintJob:

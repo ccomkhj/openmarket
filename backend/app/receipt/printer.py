@@ -14,6 +14,41 @@ from app.receipt.errors import (
 )
 
 
+def get_backend() -> "PrinterBackend":
+    """Module-level factory: return a cached backend instance.
+
+    Constructed once at first call so the USB connection is not re-opened on
+    every HTTP request. Plan C (payment.py) and beyond can import this instead
+    of re-implementing the fallback logic.
+    """
+    return _backend_cache()
+
+
+def _build_backend() -> "PrinterBackend":
+    from app.config import settings
+    if not settings.printer_vendor_id:
+        return DummyBackend()
+    try:
+        return UsbBackend(
+            vendor_id=settings.printer_vendor_id,
+            product_id=settings.printer_product_id,
+            profile=settings.printer_profile,
+        )
+    except PrinterUnavailableError:
+        return DummyBackend(online=False)
+
+
+# Lazy singleton — built on first access, reused for the process lifetime.
+_cached_backend: "PrinterBackend | None" = None
+
+
+def _backend_cache() -> "PrinterBackend":
+    global _cached_backend
+    if _cached_backend is None:
+        _cached_backend = _build_backend()
+    return _cached_backend
+
+
 class PrinterBackend(Protocol):
     def write(self, data: bytes) -> None: ...
     def is_paper_ok(self) -> bool: ...

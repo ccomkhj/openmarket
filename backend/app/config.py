@@ -35,6 +35,12 @@ class Settings(BaseSettings):
     printer_product_id: int = 0x0e28  # TM-m30III
     printer_profile: str = "TM-m30III"
 
+    merchant_name: str = "My Market"
+    merchant_address: str = ""
+    merchant_tax_id: str = ""
+    merchant_vat_id: str = ""
+    merchant_register_id: str = "KASSE-01"
+
     model_config = {"env_prefix": "", "env_file": ".env", "extra": "ignore"}
 
     @field_validator("session_secret_key")
