@@ -36,6 +36,7 @@ export function SalePage() {
   const [pendingOrder, setPendingOrder] = useState<Order | null>(null);
   const [pendingTotal, setPendingTotal] = useState<string>("0.00");
   const [lastTxId, setLastTxId] = useState<string | null>(null);
+  const [lastSale, setLastSale] = useState<{ orderNumber: string; total: string; change: string; method: "cash" | "card" } | null>(null);
   const [confirmStorno, setConfirmStorno] = useState(false);
 
   useEffect(() => { barcodeRef.current?.focus(); }, []);
@@ -100,6 +101,7 @@ export function SalePage() {
   };
 
   const addToSale = (productTitle: string, variant: ProductVariant) => {
+    if (lastSale) setLastSale(null);
     if (variant.pricing_type === "by_weight") {
       setWeighedPrompt({ variant, productTitle });
       setSearchResults([]);
@@ -115,6 +117,7 @@ export function SalePage() {
   };
 
   const addWeighedToSale = (productTitle: string, variant: ProductVariant, quantityKg: number) => {
+    if (lastSale) setLastSale(null);
     const qtyKgStr = quantityKg.toFixed(3);
     setSaleItems((prev) => [
       ...prev,
@@ -202,11 +205,27 @@ export function SalePage() {
   };
 
   const handleCashPaid = (r: CashPaymentResult) => {
-    if (pendingOrder) handlePaymentSuccess(r.transaction.id, pendingOrder);
+    if (pendingOrder) {
+      setLastSale({
+        orderNumber: pendingOrder.order_number,
+        total: pendingTotal,
+        change: r.change,
+        method: "cash",
+      });
+      handlePaymentSuccess(r.transaction.id, pendingOrder);
+    }
   };
 
   const handleCardPaid = (r: CardPaymentResult) => {
-    if (pendingOrder) handlePaymentSuccess(r.transaction.id, pendingOrder);
+    if (pendingOrder) {
+      setLastSale({
+        orderNumber: pendingOrder.order_number,
+        total: pendingTotal,
+        change: "0.00",
+        method: "card",
+      });
+      handlePaymentSuccess(r.transaction.id, pendingOrder);
+    }
   };
 
   const doReprint = async () => {
@@ -228,6 +247,7 @@ export function SalePage() {
     try {
       await api.storno.void(lastTxId);
       setLastTxId(null);
+      setLastSale(null);
       setConfirmStorno(false);
       toast("Transaction voided (Storno)");
     } catch (e: any) {
@@ -332,6 +352,30 @@ export function SalePage() {
               Pay Card
             </Button>
           </div>
+          {lastSale && (
+            <div style={{
+              marginTop: spacing.sm,
+              padding: spacing.md,
+              background: "#E6F4EA",
+              border: "1px solid #34A853",
+              borderRadius: radius.sm,
+              fontSize: 14,
+            }}>
+              <div style={{ fontWeight: 700, color: "#1A7F37", marginBottom: 4 }}>
+                ✓ Paid — Order #{lastSale.orderNumber}
+              </div>
+              <div style={{ color: colors.textPrimary }}>
+                Total EUR {lastSale.total}
+                {lastSale.method === "cash" && parseFloat(lastSale.change) > 0 && (
+                  <> · <strong>Change EUR {lastSale.change}</strong></>
+                )}
+                {lastSale.method === "card" && <> · card</>}
+              </div>
+              <div style={{ color: colors.textSecondary, fontSize: 12, marginTop: 4 }}>
+                Scan next item to start a new sale
+              </div>
+            </div>
+          )}
           {lastTxId && (
             <div style={{ display: "flex", gap: spacing.xs, marginTop: spacing.xs }}>
               <Button variant="secondary" size="sm" fullWidth onClick={doReprint}>

@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Routes, Route, Link, Navigate, useLocation } from "react-router-dom";
 import { ProductsInventoryPage } from "./pages/ProductsInventoryPage";
 import { OrdersPage } from "./pages/OrdersPage";
@@ -9,7 +10,7 @@ import { Users } from "./pages/Users";
 import { ZReport } from "./pages/ZReport";
 import { DsfinvkExport } from "./pages/DsfinvkExport";
 import { RecentSales } from "./pages/RecentSales";
-import { baseStyles, colors, ToastProvider, type Me } from "@openmarket/shared";
+import { api, baseStyles, colors, ToastProvider, type Me } from "@openmarket/shared";
 import { RequireAuth } from "./components/RequireAuth";
 
 export function App() {
@@ -22,11 +23,29 @@ export function App() {
 
 function AdminShell({ me }: { me: Me }) {
   const location = useLocation();
+  const [unfulfilled, setUnfulfilled] = useState<number | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = () => api.orders.unfulfilledCount()
+      .then((r) => { if (!cancelled) setUnfulfilled(r.count); })
+      .catch(() => { if (!cancelled) setUnfulfilled(null); });
+    load();
+    const id = setInterval(load, 60_000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, []);
+
   const linkStyle = (path: string) => ({
     ...baseStyles.navLink,
     color: location.pathname === path ? colors.brand : colors.textSecondary,
     fontWeight: location.pathname === path ? (600 as const) : (500 as const),
   });
+
+  const badgeStyle: React.CSSProperties = {
+    marginLeft: 6, padding: "1px 7px", borderRadius: 10,
+    background: colors.danger, color: "#fff",
+    fontSize: 11, fontWeight: 700, verticalAlign: "middle",
+  };
 
   const canSeeSecurity = me.role === "owner" || me.role === "manager";
   const canSeeUsers = me.role === "owner";
@@ -42,7 +61,10 @@ function AdminShell({ me }: { me: Me }) {
         <div style={{ flex: 1 }} />
         <Link to="/analytics" style={linkStyle("/analytics")}>Analytics</Link>
         <Link to="/products" style={linkStyle("/products")}>Products & Inventory</Link>
-        <Link to="/orders" style={linkStyle("/orders")}>Orders</Link>
+        <Link to="/orders" style={linkStyle("/orders")}>
+          Orders
+          {unfulfilled !== null && unfulfilled > 0 && <span style={badgeStyle}>{unfulfilled}</span>}
+        </Link>
         <Link to="/customers" style={linkStyle("/customers")}>Customers</Link>
         <Link to="/settings" style={linkStyle("/settings")}>Settings</Link>
         {canSeeSecurity && (

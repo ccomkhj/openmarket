@@ -84,6 +84,7 @@ export const api = {
   orders: {
     list: (params?: { source?: string; fulfillment_status?: string; search?: string; date_from?: string; date_to?: string; limit?: number; offset?: number }) =>
       request<import("./types").OrderListItem[]>(`/orders${qs(params ?? {})}`),
+    unfulfilledCount: () => request<{ count: number }>("/orders/unfulfilled-count"),
     get: (id: number) => request<import("./types").Order>(`/orders/${id}`),
     lookup: (orderNumber: string) =>
       request<import("./types").Order>(`/orders/lookup?order_number=${encodeURIComponent(orderNumber)}`),

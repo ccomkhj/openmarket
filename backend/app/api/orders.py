@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -95,6 +95,14 @@ async def list_orders(
             customer_email=(c.email if c else None),
         ))
     return out
+
+
+@router.get("/orders/unfulfilled-count")
+async def unfulfilled_count(db: AsyncSession = Depends(get_db)):
+    result = await db.execute(
+        select(func.count(Order.id)).where(Order.fulfillment_status == "unfulfilled")
+    )
+    return {"count": int(result.scalar() or 0)}
 
 
 @router.get("/orders/lookup", response_model=OrderOut)
