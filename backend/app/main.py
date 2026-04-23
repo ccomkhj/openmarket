@@ -31,6 +31,7 @@ from app.api.returns import router as returns_router
 from app.api.auth import router as auth_router
 from app.api.users import router as users_router
 from app.api.receipts import router as receipts_router
+from app.api.payment import router as payment_router
 from app.ws.manager import manager
 from app.fiscal.client import FiscalClient
 from app.fiscal.service import FiscalService
@@ -105,6 +106,7 @@ app.include_router(returns_router)
 app.include_router(auth_router)
 app.include_router(users_router)
 app.include_router(receipts_router)
+app.include_router(payment_router)
 
 
 upload_path = Path(settings.upload_dir)
