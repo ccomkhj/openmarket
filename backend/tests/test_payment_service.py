@@ -36,7 +36,7 @@ async def _setup_order(db) -> tuple[int, int]:
     ii = InventoryItem(variant_id=v.id); db.add(ii); await db.flush()
     db.add(InventoryLevel(inventory_item_id=ii.id, location_id=loc.id, available=10))
     await db.commit()
-    cashier = User(email=None, password_hash=None, pin_hash=hash_pin("1"), full_name="A", role="cashier")
+    cashier = User(email=None, password_hash=None, pin_hash=hash_pin("1234"), full_name="A", role="cashier")
     db.add(cashier); await db.commit(); await db.refresh(cashier)
     order = await create_order(db, source="pos", line_items_data=[{"variant_id": v.id, "quantity": 1}])
     return order.id, cashier.id

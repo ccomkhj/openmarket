@@ -9,7 +9,7 @@ from app.services.password import hash_pin
 
 
 async def _seed(db) -> uuid.UUID:
-    c = User(email=None, password_hash=None, pin_hash=hash_pin("1"),
+    c = User(email=None, password_hash=None, pin_hash=hash_pin("1234"),
              full_name="A", role="cashier")
     db.add(c); await db.commit(); await db.refresh(c)
     tid = uuid.uuid4()

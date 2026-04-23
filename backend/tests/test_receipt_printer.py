@@ -23,7 +23,7 @@ def _builder() -> ReceiptBuilder:
 
 
 async def _seed_tx(db, *, receipt_number: int = 1) -> PosTransaction:
-    c = User(email=None, password_hash=None, pin_hash=hash_pin("1"),
+    c = User(email=None, password_hash=None, pin_hash=hash_pin("1234"),
              full_name="A", role="cashier")
     db.add(c); await db.commit(); await db.refresh(c)
     tid = uuid.uuid4()

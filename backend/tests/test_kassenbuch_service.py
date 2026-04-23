@@ -9,7 +9,7 @@ from app.services.password import hash_pin
 
 
 async def _cashier(db) -> User:
-    u = User(email=None, password_hash=None, pin_hash=hash_pin("1"),
+    u = User(email=None, password_hash=None, pin_hash=hash_pin("1234"),
              full_name="A", role="cashier")
     db.add(u); await db.commit(); await db.refresh(u)
     return u

@@ -119,7 +119,7 @@ from app.models import PosTransaction
 async def test_retry_pending_signatures_completes_pending_rows(db):
     from app.services.password import hash_pin
     from app.models import User
-    c = User(email=None, password_hash=None, pin_hash=hash_pin("1"),
+    c = User(email=None, password_hash=None, pin_hash=hash_pin("1234"),
              full_name="C", role="cashier")
     db.add(c); await db.commit(); await db.refresh(c)
 
