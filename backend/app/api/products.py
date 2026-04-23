@@ -1,4 +1,7 @@
+import csv
+import io
 import uuid
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
@@ -42,6 +45,69 @@ async def create_product(body: ProductCreate, db: AsyncSession = Depends(get_db)
     await db.commit()
     await db.refresh(product, ["variants", "images"])
     return product
+
+
+@router.post("/products/import-csv")
+async def import_products_csv(
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+):
+    """CSV columns (header row required):
+    title, handle, barcode, sku, price, status (optional, default=active).
+    One variant per row. Rows with duplicate handles are skipped.
+    """
+    raw = (await file.read()).decode("utf-8-sig")
+    reader = csv.DictReader(io.StringIO(raw))
+    required = {"title", "handle", "barcode", "sku", "price"}
+    missing = required - set(reader.fieldnames or [])
+    if missing:
+        raise HTTPException(400, f"missing CSV columns: {sorted(missing)}")
+
+    existing_handles = set(
+        (await db.execute(select(Product.handle))).scalars().all()
+    )
+    created = 0
+    skipped = 0
+    errors: list[str] = []
+
+    for i, row in enumerate(reader, start=2):
+        handle = (row.get("handle") or "").strip()
+        title = (row.get("title") or "").strip()
+        if not handle or not title:
+            errors.append(f"row {i}: missing handle or title")
+            continue
+        if handle in existing_handles:
+            skipped += 1
+            continue
+        try:
+            price = Decimal((row.get("price") or "0").strip())
+        except (InvalidOperation, ValueError):
+            errors.append(f"row {i}: bad price '{row.get('price')}'")
+            continue
+        product = Product(
+            title=title,
+            handle=handle,
+            description="",
+            product_type="",
+            status=(row.get("status") or "active").strip(),
+            tags=[],
+        )
+        variant = ProductVariant(
+            title="Default",
+            sku=(row.get("sku") or "").strip(),
+            barcode=(row.get("barcode") or "").strip(),
+            price=price,
+            position=0,
+            pricing_type="fixed",
+        )
+        variant.inventory_item = InventoryItem()
+        product.variants.append(variant)
+        db.add(product)
+        existing_handles.add(handle)
+        created += 1
+
+    await db.commit()
+    return {"created": created, "skipped": skipped, "errors": errors}
 
 
 @router.get("/products", response_model=list[ProductListWithPriceOut])

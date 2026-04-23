@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, Fragment } from "react";
+import { useEffect, useState, useCallback, useRef, Fragment } from "react";
 import { VariantEditModal } from "./VariantEdit";
 import { api, useWebSocket, useToast, useDebounce, Button, Spinner, ConfirmDialog, CameraCapture, colors, baseStyles, spacing, radius, BarcodeScanner, OCRScanner } from "@openmarket/shared";
 import type { Product, ProductListWithPrice, ProductVariant, InventoryLevel, Location, VariantDetail } from "@openmarket/shared";
@@ -62,6 +62,22 @@ export function ProductsInventoryPage() {
   const [locations, setLocations] = useState<Location[]>([]);
   const [selectedLocationId, setSelectedLocationId] = useState<number>(1);
   const debouncedSearch = useDebounce(search, 300);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const onPickCsv = () => fileInputRef.current?.click();
+  const onCsvChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    e.target.value = "";
+    if (!f) return;
+    try {
+      const r = await api.products.importCsv(f);
+      toast(`Imported ${r.created}, skipped ${r.skipped}${r.errors.length ? `, ${r.errors.length} errors` : ""}`);
+      if (r.errors.length) console.warn("CSV import errors", r.errors);
+      await loadProducts();
+    } catch (err: any) {
+      toast(`Import failed: ${err.message}`, "error");
+    }
+  };
 
   const loadProducts = async () => {
     setLoading(true);
@@ -288,7 +304,11 @@ export function ProductsInventoryPage() {
           </select>
         </div>
       )}
-      <input placeholder="Search products..." value={search} onChange={(e) => setSearch(e.target.value)} style={{ ...baseStyles.input, marginBottom: spacing.lg }} />
+      <div style={{ display: "flex", gap: spacing.sm, marginBottom: spacing.lg, alignItems: "center" }}>
+        <input placeholder="Search products..." value={search} onChange={(e) => setSearch(e.target.value)} style={{ ...baseStyles.input, flex: 1, marginBottom: 0 }} />
+        <input ref={fileInputRef} type="file" accept=".csv,text/csv" onChange={onCsvChange} style={{ display: "none" }} />
+        <Button variant="secondary" size="sm" onClick={onPickCsv}>Import CSV</Button>
+      </div>
 
       {loading ? <Spinner label="Loading products..." /> : (
         <div style={{ ...baseStyles.card, padding: 0, overflow: "hidden" }}>

@@ -42,6 +42,18 @@ export const api = {
       }
       return response.json() as Promise<import("./types").ProductImage>;
     },
+    importCsv: async (file: File) => {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch(`${API_BASE}/products/import-csv`, {
+        method: "POST", credentials: "include", body: fd,
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: `HTTP ${res.status}` }));
+        throw new Error(err.detail || `HTTP ${res.status}`);
+      }
+      return (await res.json()) as { created: number; skipped: number; errors: string[] };
+    },
   },
   variants: {
     lookup: (barcode: string) =>
