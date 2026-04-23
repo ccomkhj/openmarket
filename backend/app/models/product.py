@@ -1,6 +1,8 @@
+from decimal import Decimal
+
 from sqlalchemy import Column, DateTime, ForeignKey, Index, Integer, Numeric, String, Text, func
 from sqlalchemy.dialects.postgresql import ARRAY
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
 
@@ -49,6 +51,7 @@ class ProductVariant(Base):
     max_weight_kg = Column(Numeric(10, 3), nullable=True)
     tare_kg = Column(Numeric(10, 3), nullable=True)
     barcode_format = Column(String, nullable=False, default="standard")
+    vat_rate: Mapped[Decimal] = mapped_column(Numeric(5, 2), nullable=False, default=Decimal("19.00"))
 
     product = relationship("Product", back_populates="variants")
     inventory_item = relationship("InventoryItem", back_populates="variant", uselist=False, cascade="all, delete-orphan")
