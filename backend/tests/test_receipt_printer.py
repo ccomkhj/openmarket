@@ -95,7 +95,7 @@ async def test_reprint_runs_pending_and_buffered(db):
 
     online = DummyBackend()
     svc_on = ReceiptService(db=db, builder=_builder(), backend=online)
-    job = await svc_on.reprint(tx.id)
+    job = await svc_on.print_receipt(tx.id)
 
     assert job.status == "printed"
     assert len(online.buffer) > 0
