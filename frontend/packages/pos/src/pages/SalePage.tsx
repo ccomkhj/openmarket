@@ -1,10 +1,13 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { api, useWebSocket, useToast, Button, ConfirmDialog, colors, baseStyles, spacing, radius, BarcodeScanner } from "@openmarket/shared";
-import type { ProductVariant } from "@openmarket/shared";
+import type { ProductVariant, CashPaymentResult, CardPaymentResult, Order } from "@openmarket/shared";
 import { Receipt } from "../components/Receipt";
 import type { ReceiptItem } from "../components/Receipt";
 import { ReturnModal } from "../components/ReturnModal";
 import { WeighedProductInput } from "../components/WeighedProductInput";
+import { HealthDots } from "../components/HealthDots";
+import { PaymentCashModal } from "../components/PaymentCashModal";
+import { PaymentCardModal } from "../components/PaymentCardModal";
 
 interface SaleItem {
   variant: ProductVariant;
@@ -29,6 +32,11 @@ export function SalePage() {
   const { toast } = useToast();
   const [confirmVoid, setConfirmVoid] = useState(false);
   const [weighedPrompt, setWeighedPrompt] = useState<WeighedPrompt | null>(null);
+  const [payMethod, setPayMethod] = useState<"none" | "cash" | "card">("none");
+  const [pendingOrder, setPendingOrder] = useState<Order | null>(null);
+  const [pendingTotal, setPendingTotal] = useState<string>("0.00");
+  const [lastTxId, setLastTxId] = useState<string | null>(null);
+  const [confirmStorno, setConfirmStorno] = useState(false);
 
   useEffect(() => { barcodeRef.current?.focus(); }, []);
 
@@ -44,9 +52,9 @@ export function SalePage() {
         else if (showReturn) { setShowReturn(false); }
         return;
       }
-      if (e.key === "F8" && saleItems.length > 0 && !receiptData) {
+      if (e.key === "F8" && saleItems.length > 0 && !receiptData && payMethod === "none") {
         e.preventDefault();
-        completeSale();
+        handlePayCash();
         return;
       }
       if (e.key === "F4" && saleItems.length > 0) {
@@ -62,7 +70,7 @@ export function SalePage() {
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [saleItems.length, receiptData, error, showReturn, weighedPrompt]);
+  }, [saleItems.length, receiptData, error, showReturn, weighedPrompt, payMethod]);
 
   const addByBarcode = async (barcode: string) => {
     setError("");
@@ -132,7 +140,24 @@ export function SalePage() {
   const voidSale = () => setConfirmVoid(true);
   const doVoidSale = () => { setSaleItems([]); setConfirmVoid(false); toast("Sale voided"); barcodeRef.current?.focus(); };
 
-  const completeSale = async () => {
+  const buildReceiptItems = (order: Order): { receiptItems: ReceiptItem[]; receiptTotal: number; orderNumber: string } => {
+    const serverLines = order.line_items ?? [];
+    const receiptItems: ReceiptItem[] = saleItems.map((i, idx) => {
+      const serverLine = serverLines[idx];
+      return {
+        productTitle: i.productTitle,
+        variantTitle: i.quantityKg ? `${i.variant.title} (${i.quantityKg} kg)` : i.variant.title,
+        quantity: i.quantity,
+        price: i.variant.price,
+        quantity_kg: i.quantityKg ?? null,
+        line_total: serverLine?.line_total ?? null,
+      };
+    });
+    const receiptTotal = saleItems.reduce((sum, i) => sum + liveLineTotal(i), 0);
+    return { receiptItems, receiptTotal, orderNumber: order.order_number };
+  };
+
+  const createOrderForPayment = async (): Promise<Order | null> => {
     setError("");
     try {
       const order = await api.orders.create({
@@ -143,23 +168,59 @@ export function SalePage() {
           return line;
         }),
       });
-      const serverLines = order.line_items ?? [];
-      const receiptItems: ReceiptItem[] = saleItems.map((i, idx) => {
-        const serverLine = serverLines[idx];
-        return {
-          productTitle: i.productTitle,
-          variantTitle: i.quantityKg ? `${i.variant.title} (${i.quantityKg} kg)` : i.variant.title,
-          quantity: i.quantity,
-          price: i.variant.price,
-          quantity_kg: i.quantityKg ?? null,
-          line_total: serverLine?.line_total ?? null,
-        };
-      });
-      const receiptTotal = saleItems.reduce((sum, i) => sum + liveLineTotal(i), 0);
-      setSaleItems([]);
-      setReceiptData({ orderNumber: String(order.order_number), items: receiptItems, total: receiptTotal });
-      toast("Sale completed");
-    } catch (e: any) { setError(e.message); toast("Sale failed", "error"); }
+      return order;
+    } catch (e: any) {
+      setError(e.message);
+      toast("Order creation failed", "error");
+      return null;
+    }
+  };
+
+  const handlePayCash = async () => {
+    const order = await createOrderForPayment();
+    if (!order) return;
+    setPendingOrder(order);
+    setPendingTotal(total.toFixed(2));
+    setPayMethod("cash");
+  };
+
+  const handlePayCard = async () => {
+    const order = await createOrderForPayment();
+    if (!order) return;
+    setPendingOrder(order);
+    setPendingTotal(total.toFixed(2));
+    setPayMethod("card");
+  };
+
+  const handlePaymentSuccess = (txId: string, order: Order) => {
+    const { receiptItems, receiptTotal, orderNumber } = buildReceiptItems(order);
+    setSaleItems([]);
+    setPayMethod("none");
+    setPendingOrder(null);
+    setLastTxId(txId);
+    setReceiptData({ orderNumber, items: receiptItems, total: receiptTotal });
+    toast("Sale completed");
+  };
+
+  const handleCashPaid = (r: CashPaymentResult) => {
+    if (pendingOrder) handlePaymentSuccess(r.transaction.id, pendingOrder);
+  };
+
+  const handleCardPaid = (r: CardPaymentResult) => {
+    if (pendingOrder) handlePaymentSuccess(r.transaction.id, pendingOrder);
+  };
+
+  const doStorno = async () => {
+    if (!lastTxId) return;
+    try {
+      await api.storno.void(lastTxId);
+      setLastTxId(null);
+      setConfirmStorno(false);
+      toast("Transaction voided (Storno)");
+    } catch (e: any) {
+      toast(`Storno failed: ${e.message}`, "error");
+      setConfirmStorno(false);
+    }
   };
 
   const handleBarcodeKeyDown = (e: React.KeyboardEvent) => { if (e.key === "Enter" && barcodeInput.trim()) addByBarcode(barcodeInput.trim()); };
@@ -170,7 +231,10 @@ export function SalePage() {
       <div style={{ flex: 1, padding: spacing.lg, borderRight: `1px solid ${colors.border}`, background: colors.surface, display: "flex", flexDirection: "column" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: spacing.lg }}>
           <h2 style={{ margin: 0, color: colors.brand }}>POS</h2>
-          <Button variant="secondary" size="sm" onClick={() => setShowReturn(true)}>Returns (F9)</Button>
+          <div style={{ display: "flex", alignItems: "center", gap: spacing.sm }}>
+            <HealthDots />
+            <Button variant="secondary" size="sm" onClick={() => setShowReturn(true)}>Returns (F9)</Button>
+          </div>
         </div>
 
         <div style={{ marginBottom: spacing.lg }}>
@@ -245,10 +309,22 @@ export function SalePage() {
 
         <div style={{ borderTop: `2px solid ${colors.textPrimary}`, paddingTop: spacing.md }}>
           <p style={{ fontSize: "28px", fontWeight: 700, textAlign: "right", margin: `0 0 ${spacing.md}` }}>${total.toFixed(2)}</p>
-          <Button variant="primary" size="lg" fullWidth disabled={saleItems.length === 0} onClick={completeSale}
-            style={{ background: "#1A7F37", padding: "14px", fontSize: "18px" }}>
-            Complete Sale (F8)
-          </Button>
+          <div style={{ display: "flex", gap: spacing.sm, marginBottom: spacing.sm }}>
+            <Button variant="primary" size="lg" fullWidth disabled={saleItems.length === 0 || payMethod !== "none"} onClick={handlePayCash}
+              style={{ background: "#1A7F37", padding: "14px", fontSize: "16px" }}>
+              Pay Cash (F8)
+            </Button>
+            <Button variant="primary" size="lg" fullWidth disabled={saleItems.length === 0 || payMethod !== "none"} onClick={handlePayCard}
+              style={{ background: "#0070f3", padding: "14px", fontSize: "16px" }}>
+              Pay Card
+            </Button>
+          </div>
+          {lastTxId && (
+            <Button variant="danger" size="sm" fullWidth onClick={() => setConfirmStorno(true)}
+              style={{ marginTop: spacing.xs }}>
+              Storno last sale
+            </Button>
+          )}
         </div>
       </div>
       {showCameraScanner && (
@@ -288,6 +364,32 @@ export function SalePage() {
             setWeighedPrompt(null);
           }}
           onCancel={() => setWeighedPrompt(null)}
+        />
+      )}
+      {payMethod === "cash" && pendingOrder !== null && (
+        <PaymentCashModal
+          orderId={pendingOrder.id}
+          total={pendingTotal}
+          onPaid={handleCashPaid}
+          onCancel={() => { setPayMethod("none"); setPendingOrder(null); }}
+        />
+      )}
+      {payMethod === "card" && pendingOrder !== null && (
+        <PaymentCardModal
+          orderId={pendingOrder.id}
+          total={pendingTotal}
+          onPaid={handleCardPaid}
+          onCancel={() => { setPayMethod("none"); setPendingOrder(null); }}
+        />
+      )}
+      {confirmStorno && (
+        <ConfirmDialog
+          title="Storno last sale"
+          message="This will void the last completed transaction via TSE. The receipt will be cancelled. This cannot be undone."
+          confirmLabel="Void transaction"
+          variant="danger"
+          onConfirm={doStorno}
+          onCancel={() => setConfirmStorno(false)}
         />
       )}
     </div>
