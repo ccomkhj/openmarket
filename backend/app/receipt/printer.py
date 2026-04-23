@@ -53,6 +53,7 @@ class PrinterBackend(Protocol):
     def write(self, data: bytes) -> None: ...
     def is_paper_ok(self) -> bool: ...
     def is_online(self) -> bool: ...
+    def pulse_cash_drawer(self) -> None: ...
 
 
 class DummyBackend:
@@ -62,6 +63,7 @@ class DummyBackend:
         self.online = online
         self.paper_ok = paper_ok
         self.buffer: bytearray = bytearray()
+        self.drawer_pulses: int = 0
 
     def write(self, data: bytes) -> None:
         if not self.online:
@@ -75,6 +77,11 @@ class DummyBackend:
 
     def is_online(self) -> bool:
         return self.online
+
+    def pulse_cash_drawer(self) -> None:
+        if not self.online:
+            raise PrinterUnavailableError("dummy offline")
+        self.drawer_pulses += 1
 
 
 class UsbBackend:
@@ -104,3 +111,10 @@ class UsbBackend:
             return self._p.is_online()
         except Exception:
             return False
+
+    def pulse_cash_drawer(self) -> None:
+        try:
+            # ESC p m t1 t2 — open drawer pin 2 (m=0), 50ms pulse.
+            self._p._raw(b"\x1b\x70\x00\x32\x32")
+        except Exception as e:
+            raise PrinterWriteError(str(e)) from e

@@ -104,3 +104,12 @@ async def test_reprint_runs_pending_and_buffered(db):
     )).scalars().all()
     assert len(jobs) == 2
     assert {j.status for j in jobs} == {"buffered", "printed"}
+
+
+def test_dummy_backend_records_drawer_pulse():
+    from app.receipt.printer import DummyBackend
+    b = DummyBackend()
+    b.pulse_cash_drawer()
+    assert b.drawer_pulses == 1
+    b.pulse_cash_drawer()
+    assert b.drawer_pulses == 2
