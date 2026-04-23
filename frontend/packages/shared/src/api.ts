@@ -149,6 +149,13 @@ export const api = {
     card: (data: { client_id: string; order_id: number }) =>
       request<CardPaymentResult>("/payment/card", { method: "POST", body: JSON.stringify(data) }),
   },
+  receipts: {
+    reprint: (posTransactionId: string) =>
+      request<{ id: number; pos_transaction_id: string; status: string; attempts: number; last_error: string | null; printed_at: string | null }>(
+        `/receipts/${posTransactionId}/reprint`,
+        { method: "POST" },
+      ),
+  },
   kassenbuch: {
     open: (denominations: Record<string, number>) =>
       request<KassenbuchEntry>("/kassenbuch/open", { method: "POST", body: JSON.stringify({ denominations }) }),

@@ -209,6 +209,20 @@ export function SalePage() {
     if (pendingOrder) handlePaymentSuccess(r.transaction.id, pendingOrder);
   };
 
+  const doReprint = async () => {
+    if (!lastTxId) return;
+    try {
+      const job = await api.receipts.reprint(lastTxId);
+      if (job.status === "printed" || job.status === "queued") {
+        toast("Receipt reprinted");
+      } else {
+        toast(`Reprint status: ${job.status}${job.last_error ? ` — ${job.last_error}` : ""}`, "error");
+      }
+    } catch (e: any) {
+      toast(`Reprint failed: ${e.message}`, "error");
+    }
+  };
+
   const doStorno = async () => {
     if (!lastTxId) return;
     try {
@@ -319,10 +333,14 @@ export function SalePage() {
             </Button>
           </div>
           {lastTxId && (
-            <Button variant="danger" size="sm" fullWidth onClick={() => setConfirmStorno(true)}
-              style={{ marginTop: spacing.xs }}>
-              Storno last sale
-            </Button>
+            <div style={{ display: "flex", gap: spacing.xs, marginTop: spacing.xs }}>
+              <Button variant="secondary" size="sm" fullWidth onClick={doReprint}>
+                Reprint receipt
+              </Button>
+              <Button variant="danger" size="sm" fullWidth onClick={() => setConfirmStorno(true)}>
+                Storno last sale
+              </Button>
+            </div>
           )}
         </div>
       </div>
