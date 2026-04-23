@@ -6,6 +6,8 @@ import { CustomersPage } from "./pages/CustomersPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { Security } from "./pages/Security";
 import { Users } from "./pages/Users";
+import { ZReport } from "./pages/ZReport";
+import { DsfinvkExport } from "./pages/DsfinvkExport";
 import { baseStyles, colors, ToastProvider, type Me } from "@openmarket/shared";
 import { RequireAuth } from "./components/RequireAuth";
 
@@ -27,6 +29,8 @@ function AdminShell({ me }: { me: Me }) {
 
   const canSeeSecurity = me.role === "owner" || me.role === "manager";
   const canSeeUsers = me.role === "owner";
+  const canSeeZReport = me.role === "owner" || me.role === "manager";
+  const canSeeDsfinvk = me.role === "owner";
 
   return (
   <ToastProvider>
@@ -45,6 +49,12 @@ function AdminShell({ me }: { me: Me }) {
         {canSeeUsers && (
           <Link to="/users" style={linkStyle("/users")}>Users</Link>
         )}
+        {canSeeZReport && (
+          <Link to="/z-report" style={linkStyle("/z-report")}>Z-Report</Link>
+        )}
+        {canSeeDsfinvk && (
+          <Link to="/dsfinvk" style={linkStyle("/dsfinvk")}>DSFinV-K</Link>
+        )}
       </nav>
       <Routes>
         <Route path="/" element={<Navigate to="/analytics" replace />} />
@@ -55,6 +65,8 @@ function AdminShell({ me }: { me: Me }) {
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/security" element={<Security />} />
         <Route path="/users" element={<Users />} />
+        <Route path="/z-report" element={<ZReport />} />
+        <Route path="/dsfinvk" element={<DsfinvkExport />} />
       </Routes>
     </div>
   </ToastProvider>
