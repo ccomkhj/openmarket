@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api, useDebounce, exportCsv, Button, Spinner, colors, baseStyles, spacing, radius } from "@openmarket/shared";
+import { api, useDebounce, exportCsv, Button, Spinner, ConfirmDialog, useToast, colors, baseStyles, spacing, radius } from "@openmarket/shared";
 import type { Order, OrderListItem } from "@openmarket/shared";
 
 export function OrdersPage() {
@@ -10,6 +10,9 @@ export function OrdersPage() {
   const [sourceFilter, setSourceFilter] = useState<string>("");
   const debouncedSearch = useDebounce(search, 300);
   const [expandedOrder, setExpandedOrder] = useState<Order | null>(null);
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [confirmBulk, setConfirmBulk] = useState(false);
+  const { toast } = useToast();
 
   const loadOrders = async () => {
     setLoading(true);
@@ -34,6 +37,19 @@ export function OrdersPage() {
     setExpandedOrder(null);
   };
 
+  const fulfillAllVisible = async () => {
+    setConfirmBulk(false);
+    setBulkBusy(true);
+    const results = await Promise.allSettled(
+      orders.map((o) => api.fulfillments.create(o.id, { status: "delivered" })),
+    );
+    const failed = results.filter((r) => r.status === "rejected").length;
+    setBulkBusy(false);
+    await loadOrders();
+    if (failed === 0) toast(`Fulfilled ${results.length} order(s)`);
+    else toast(`Fulfilled ${results.length - failed}, failed ${failed}`, "error");
+  };
+
   const handleExport = () => {
     exportCsv(
       `orders-${tab}-${new Date().toISOString().slice(0, 10)}.csv`,
@@ -55,7 +71,15 @@ export function OrdersPage() {
     <div style={baseStyles.container}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: spacing.lg }}>
         <h2 style={{ margin: 0 }}>Orders</h2>
-        <Button variant="secondary" size="sm" onClick={handleExport} disabled={orders.length === 0}>Export CSV</Button>
+        <div style={{ display: "flex", gap: spacing.sm }}>
+          <Button
+            variant="primary" size="sm"
+            disabled={tab !== "unfulfilled" || orders.length === 0 || bulkBusy}
+            onClick={() => setConfirmBulk(true)}>
+            {bulkBusy ? "Fulfilling..." : `Fulfill all (${orders.length})`}
+          </Button>
+          <Button variant="secondary" size="sm" onClick={handleExport} disabled={orders.length === 0}>Export CSV</Button>
+        </div>
       </div>
 
       <div style={{ display: "flex", gap: spacing.sm, marginBottom: spacing.lg, flexWrap: "wrap" }}>
@@ -131,6 +155,16 @@ export function OrdersPage() {
             </tbody>
           </table>
         </div>
+      )}
+      {confirmBulk && (
+        <ConfirmDialog
+          title="Fulfill all visible orders"
+          message={`This will mark ${orders.length} order(s) as delivered. This cannot be undone in bulk.`}
+          confirmLabel="Fulfill all"
+          variant="primary"
+          onConfirm={fulfillAllVisible}
+          onCancel={() => setConfirmBulk(false)}
+        />
       )}
     </div>
   );
