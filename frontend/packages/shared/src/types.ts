@@ -198,3 +198,55 @@ export interface DiscountCreate {
   starts_at: string;
   ends_at: string;
 }
+
+export interface PosTransactionRef {
+  id: string;
+  client_id: string;
+  receipt_number: number;
+  tse_signature: string | null;
+  tse_pending: boolean;
+  total_gross: string;
+}
+
+export interface CashPaymentResult {
+  transaction: PosTransactionRef;
+  change: string;
+  receipt_status: "printed" | "buffered" | "failed";
+}
+
+export interface CardPaymentResult {
+  transaction: PosTransactionRef;
+  receipt_status: "printed" | "buffered" | "failed";
+}
+
+export interface KassenbuchEntry {
+  id: string;
+  type: string;
+  amount: string;
+}
+
+export interface CloseSummary {
+  id: string;
+  expected: string;
+  counted: string;
+  difference: string;
+}
+
+export interface ZReport {
+  date_from: string;
+  date_to: string;
+  opening_cash: string;
+  closing_counted: string;
+  transaction_count: number;
+  sales_by_vat: Record<string, string>;
+  sales_by_payment: Record<string, string>;
+  paid_in_total: string;
+  paid_out_total: string;
+  signature_counter_first: number | null;
+  signature_counter_last: number | null;
+}
+
+export interface HealthStatus {
+  online: boolean;
+  paper_ok?: boolean;
+}

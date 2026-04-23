@@ -1,3 +1,5 @@
+import type { CashPaymentResult, CardPaymentResult, CloseSummary, HealthStatus, KassenbuchEntry, ZReport } from "./types";
+
 const API_BASE = "/api";
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
@@ -138,5 +140,40 @@ export const api = {
       `/users/${id}/deactivate`,
       { method: "PATCH" },
     ),
+  },
+  payment: {
+    cash: (data: { client_id: string; order_id: number; tendered: string }) =>
+      request<CashPaymentResult>("/payment/cash", { method: "POST", body: JSON.stringify(data) }),
+    card: (data: { client_id: string; order_id: number }) =>
+      request<CardPaymentResult>("/payment/card", { method: "POST", body: JSON.stringify(data) }),
+  },
+  kassenbuch: {
+    open: (denominations: Record<string, number>) =>
+      request<KassenbuchEntry>("/kassenbuch/open", { method: "POST", body: JSON.stringify({ denominations }) }),
+    close: (denominations: Record<string, number>) =>
+      request<CloseSummary>("/kassenbuch/close", { method: "POST", body: JSON.stringify({ denominations }) }),
+    paidIn: (amount: string, reason: string) =>
+      request<KassenbuchEntry>("/kassenbuch/paid-in", { method: "POST", body: JSON.stringify({ amount, reason }) }),
+    paidOut: (amount: string, reason: string) =>
+      request<KassenbuchEntry>("/kassenbuch/paid-out", { method: "POST", body: JSON.stringify({ amount, reason }) }),
+    status: () => request<{ open: boolean }>("/kassenbuch/status"),
+  },
+  reports: {
+    zReport: (date_from: string, date_to: string) =>
+      request<ZReport>(`/reports/z-report?date_from=${encodeURIComponent(date_from)}&date_to=${encodeURIComponent(date_to)}`),
+    dsfinvkUrl: (date_from: string, date_to: string) =>
+      `/api/reports/dsfinvk?date_from=${date_from}&date_to=${date_to}`,
+  },
+  storno: {
+    void: (txId: string) =>
+      request<{ id: string; voids_transaction_id: string; tse_signature: string; receipt_number: number }>(
+        `/pos-transactions/${txId}/void`, { method: "POST" }
+      ),
+  },
+  health: {
+    db: () => request<HealthStatus>("/health"),
+    fiskaly: () => request<HealthStatus>("/health/fiskaly"),
+    printer: () => request<HealthStatus>("/health/printer"),
+    terminal: () => request<HealthStatus>("/health/terminal"),
   },
 };
