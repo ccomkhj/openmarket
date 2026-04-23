@@ -104,6 +104,8 @@ export interface OrderListItem {
   fulfillment_status: string;
   total_price: string;
   created_at: string;
+  customer_name?: string | null;
+  customer_email?: string | null;
 }
 
 export interface Fulfillment {

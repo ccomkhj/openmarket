@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.api.deps import get_db, require_any_staff
+from app.models.customer import Customer
 from app.models.order import Order
 from app.schemas.order import OrderCreate, OrderUpdate, OrderOut, OrderListOut
 from app.services.order import create_order
@@ -57,13 +58,21 @@ async def list_orders(
     offset: int = 0,
     db: AsyncSession = Depends(get_db),
 ):
-    query = select(Order)
+    query = select(Order).options(selectinload(Order.customer))
     if source:
         query = query.where(Order.source == source)
     if fulfillment_status:
         query = query.where(Order.fulfillment_status == fulfillment_status)
     if search:
-        query = query.where(Order.order_number.ilike(f"%{search}%"))
+        like = f"%{search}%"
+        query = query.outerjoin(Customer, Order.customer_id == Customer.id).where(
+            or_(
+                Order.order_number.ilike(like),
+                Customer.first_name.ilike(like),
+                Customer.last_name.ilike(like),
+                Customer.email.ilike(like),
+            )
+        )
     if date_from:
         query = query.where(Order.created_at >= date_from)
     if date_to:
@@ -72,7 +81,20 @@ async def list_orders(
     if limit is not None:
         query = query.limit(limit)
     result = await db.execute(query)
-    return result.scalars().all()
+    orders = result.scalars().all()
+
+    out: list[OrderListOut] = []
+    for o in orders:
+        c = o.customer
+        name = f"{c.first_name} {c.last_name}".strip() if c else None
+        out.append(OrderListOut(
+            id=o.id, order_number=o.order_number, source=o.source,
+            fulfillment_status=o.fulfillment_status, total_price=o.total_price,
+            created_at=o.created_at,
+            customer_name=name or None,
+            customer_email=(c.email if c else None),
+        ))
+    return out
 
 
 @router.get("/orders/lookup", response_model=OrderOut)

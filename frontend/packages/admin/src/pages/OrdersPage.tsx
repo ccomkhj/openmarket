@@ -53,8 +53,8 @@ export function OrdersPage() {
   const handleExport = () => {
     exportCsv(
       `orders-${tab}-${new Date().toISOString().slice(0, 10)}.csv`,
-      ["Order #", "Source", "Total", "Date", "Status"],
-      orders.map((o) => [o.order_number, o.source, `$${o.total_price}`, new Date(o.created_at).toLocaleDateString(), o.fulfillment_status]),
+      ["Order #", "Source", "Customer", "Total", "Date", "Status"],
+      orders.map((o) => [o.order_number, o.source, o.customer_name ?? "", `$${o.total_price}`, new Date(o.created_at).toLocaleDateString(), o.fulfillment_status]),
     );
   };
 
@@ -92,7 +92,7 @@ export function OrdersPage() {
           <option value="web">Web</option>
           <option value="pos">POS</option>
         </select>
-        <input placeholder="Search order #..." value={search} onChange={(e) => setSearch(e.target.value)}
+        <input placeholder="Search order # or customer..." value={search} onChange={(e) => setSearch(e.target.value)}
           style={{ ...baseStyles.input, width: 200 }} />
       </div>
 
@@ -107,6 +107,7 @@ export function OrdersPage() {
               <tr style={{ background: colors.surfaceMuted, textAlign: "left" }}>
                 <th style={{ padding: "10px 16px" }}>Order #</th>
                 <th style={{ padding: "10px 16px" }}>Source</th>
+                <th style={{ padding: "10px 16px" }}>Customer</th>
                 <th style={{ padding: "10px 16px" }}>Total</th>
                 <th style={{ padding: "10px 16px" }}>Date</th>
                 <th style={{ padding: "10px 16px" }}>Status</th>
@@ -122,13 +123,16 @@ export function OrdersPage() {
                         {o.source.toUpperCase()}
                       </span>
                     </td>
+                    <td style={{ padding: "10px 16px", color: colors.textSecondary }}>
+                      {o.customer_name || "—"}
+                    </td>
                     <td style={{ padding: "10px 16px" }}>${o.total_price}</td>
                     <td style={{ padding: "10px 16px", color: colors.textSecondary }}>{new Date(o.created_at).toLocaleDateString()}</td>
                     <td style={{ padding: "10px 16px" }}>{o.fulfillment_status}</td>
                   </tr>
                   {expandedOrder?.id === o.id && (
                     <tr>
-                      <td colSpan={5} style={{ padding: "16px", background: colors.surfaceMuted, borderBottom: `1px solid ${colors.border}` }}>
+                      <td colSpan={6} style={{ padding: "16px", background: colors.surfaceMuted, borderBottom: `1px solid ${colors.border}` }}>
                         <div style={{ fontSize: "13px" }}>
                           {expandedOrder.line_items.map((li) => (
                             <div key={li.id} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0" }}>

@@ -81,5 +81,7 @@ class OrderListOut(BaseModel):
     fulfillment_status: str
     total_price: Decimal
     created_at: datetime
+    customer_name: str | None = None
+    customer_email: str | None = None
 
     model_config = {"from_attributes": True}
