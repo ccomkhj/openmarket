@@ -74,3 +74,21 @@ def test_settings_fiskaly_base_url_overridable():
         fiskaly_base_url="https://sandbox.example.com",
     )
     assert s.fiskaly_base_url == "https://sandbox.example.com"
+
+
+def test_settings_parses_printer_config_defaults():
+    s = Settings(session_secret_key="x" * 48)
+    assert s.printer_vendor_id == 0x04b8  # Epson default
+    assert s.printer_product_id == 0x0e28  # TM-m30III default
+    assert s.printer_profile == "TM-m30III"
+
+
+def test_settings_parses_printer_config_overrides():
+    s = Settings(
+        session_secret_key="x" * 48,
+        printer_vendor_id=0x0519, printer_product_id=0x0003,
+        printer_profile="TSP143",
+    )
+    assert s.printer_vendor_id == 0x0519
+    assert s.printer_product_id == 0x0003
+    assert s.printer_profile == "TSP143"

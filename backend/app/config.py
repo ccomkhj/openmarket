@@ -31,6 +31,10 @@ class Settings(BaseSettings):
     fiskaly_tss_id: str = ""
     fiskaly_base_url: str = "https://kassensichv-middleware.fiskaly.com"
 
+    printer_vendor_id: int = 0x04b8   # Epson
+    printer_product_id: int = 0x0e28  # TM-m30III
+    printer_profile: str = "TM-m30III"
+
     model_config = {"env_prefix": "", "env_file": ".env", "extra": "ignore"}
 
     @field_validator("session_secret_key")
