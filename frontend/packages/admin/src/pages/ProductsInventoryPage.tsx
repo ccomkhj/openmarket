@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef, Fragment } from "react";
 import { VariantEditModal } from "./VariantEdit";
-import { api, useWebSocket, useToast, useDebounce, Button, Spinner, ConfirmDialog, CameraCapture, colors, baseStyles, spacing, radius, BarcodeScanner, OCRScanner } from "@openmarket/shared";
+import { api, useWebSocket, useToast, useDebounce, Button, SkeletonRows, ConfirmDialog, CameraCapture, colors, baseStyles, spacing, radius, BarcodeScanner, OCRScanner } from "@openmarket/shared";
 import type { Product, ProductListWithPrice, ProductVariant, InventoryLevel, Location, VariantDetail } from "@openmarket/shared";
 
 type PricingType = "fixed" | "by_weight";
@@ -310,10 +310,26 @@ export function ProductsInventoryPage() {
         <Button variant="secondary" size="sm" onClick={onPickCsv}>Import CSV</Button>
       </div>
 
-      {loading ? <Spinner label="Loading products..." /> : (
+      {loading ? (
         <div style={{ ...baseStyles.card, padding: 0, overflow: "hidden" }}>
+          <SkeletonRows rows={6} columns={4} />
+        </div>
+      ) : products.length === 0 ? (
+        <div style={{ ...baseStyles.card, padding: spacing.xl, textAlign: "center" }}>
+          <h3 style={{ margin: 0, marginBottom: spacing.sm }}>
+            {search ? "No products match your search" : "No products yet"}
+          </h3>
+          <p style={{ margin: 0, marginBottom: spacing.md, color: colors.textSecondary, fontSize: 14 }}>
+            {search
+              ? "Try a different search term, or clear the search to see everything."
+              : "Upload a CSV to seed your catalog, or add a product manually from the database."}
+          </p>
+          {!search && <Button variant="primary" size="md" onClick={onPickCsv}>Import CSV</Button>}
+        </div>
+      ) : (
+        <div style={{ ...baseStyles.card, padding: 0, overflow: "hidden", maxHeight: "70vh", overflowY: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "14px" }}>
-            <thead>
+            <thead style={{ position: "sticky", top: 0, zIndex: 1 }}>
               <tr style={{ background: colors.surfaceMuted, textAlign: "left" }}>
                 <th style={{ padding: "10px 16px" }}>Title</th>
                 <th style={{ padding: "10px 16px" }}>Type</th>

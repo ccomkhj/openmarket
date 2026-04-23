@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api, useDebounce, exportCsv, Button, Spinner, ConfirmDialog, useToast, colors, baseStyles, spacing, radius } from "@openmarket/shared";
+import { api, useDebounce, exportCsv, Button, SkeletonRows, ConfirmDialog, useToast, colors, baseStyles, spacing, radius } from "@openmarket/shared";
 import type { Order, OrderListItem } from "@openmarket/shared";
 
 export function OrdersPage() {
@@ -96,14 +96,27 @@ export function OrdersPage() {
           style={{ ...baseStyles.input, width: 200 }} />
       </div>
 
-      {loading ? <Spinner label="Loading orders..." /> : orders.length === 0 ? (
-        <div style={{ ...baseStyles.card, textAlign: "center", padding: spacing.xl, color: colors.textSecondary }}>
-          No {tab} orders{search && " matching your search"}
+      {loading ? (
+        <div style={{ ...baseStyles.card, padding: 0, overflow: "hidden" }}>
+          <SkeletonRows rows={6} columns={6} />
+        </div>
+      ) : orders.length === 0 ? (
+        <div style={{ ...baseStyles.card, textAlign: "center", padding: spacing.xl }}>
+          <h3 style={{ margin: 0, marginBottom: spacing.sm }}>
+            {search ? "No orders match" : tab === "unfulfilled" ? "All caught up" : "No fulfilled orders yet"}
+          </h3>
+          <p style={{ margin: 0, color: colors.textSecondary, fontSize: 14 }}>
+            {search
+              ? "Try a different search or clear filters."
+              : tab === "unfulfilled"
+                ? "No orders waiting to fulfill. Great job!"
+                : "Fulfilled orders will appear here."}
+          </p>
         </div>
       ) : (
-        <div style={{ ...baseStyles.card, padding: 0, overflow: "hidden" }}>
+        <div style={{ ...baseStyles.card, padding: 0, overflow: "hidden", maxHeight: "70vh", overflowY: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "14px" }}>
-            <thead>
+            <thead style={{ position: "sticky", top: 0, zIndex: 1 }}>
               <tr style={{ background: colors.surfaceMuted, textAlign: "left" }}>
                 <th style={{ padding: "10px 16px" }}>Order #</th>
                 <th style={{ padding: "10px 16px" }}>Source</th>

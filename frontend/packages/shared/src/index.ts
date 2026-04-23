@@ -2,6 +2,7 @@ export { api } from "./api";
 export { useWebSocket } from "./useWebSocket";
 export { Button } from "./components/Button";
 export { Spinner } from "./components/Spinner";
+export { Skeleton, SkeletonRows } from "./components/Skeleton";
 export { BarcodeScanner } from "./components/BarcodeScanner";
 export { CameraCapture } from "./components/CameraCapture";
 export { OCRScanner } from "./components/OCRScanner";

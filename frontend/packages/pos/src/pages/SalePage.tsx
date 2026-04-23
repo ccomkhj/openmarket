@@ -294,6 +294,29 @@ export function SalePage() {
         </div>
 
         {error && <div style={{ background: colors.dangerSurface, color: colors.danger, padding: "10px 14px", borderRadius: radius.sm, fontSize: "14px", marginBottom: spacing.md }}>{error}</div>}
+
+        <div style={{ marginTop: "auto", paddingTop: spacing.lg, borderTop: `1px solid ${colors.border}`, display: "flex", flexWrap: "wrap", gap: 8 }}>
+          {[
+            ["F8", "Pay Cash"],
+            ["F4", "Void sale"],
+            ["F9", "Returns"],
+            ["Esc", "Close dialog"],
+          ].map(([k, label]) => (
+            <span key={k} style={{
+              display: "inline-flex", alignItems: "center", gap: 6,
+              padding: "4px 10px", borderRadius: radius.sm,
+              background: colors.surfaceMuted, fontSize: 12, color: colors.textSecondary,
+            }}>
+              <kbd style={{
+                fontFamily: "inherit", fontSize: 11, fontWeight: 700,
+                padding: "2px 6px", borderRadius: 4,
+                background: "#fff", border: `1px solid ${colors.borderStrong}`,
+                color: colors.textPrimary,
+              }}>{k}</kbd>
+              {label}
+            </span>
+          ))}
+        </div>
       </div>
 
       {/* Right: Current Sale */}
