@@ -250,3 +250,28 @@ export interface HealthStatus {
   online: boolean;
   paper_ok?: boolean;
 }
+
+export interface VariantDetail {
+  id: number;
+  product_id: number;
+  title: string;
+  sku: string | null;
+  barcode: string | null;
+  price: string;
+  pricing_type: "fixed" | "by_weight" | "by_volume";
+  vat_rate: string;
+  min_weight_kg: string | null;
+  max_weight_kg: string | null;
+  tare_kg: string | null;
+}
+
+export interface PosTransactionListItem {
+  id: string;
+  receipt_number: number;
+  started_at: string;
+  finished_at: string | null;
+  total_gross: string;
+  payment_breakdown: Record<string, string>;
+  tse_pending: boolean;
+  voids_transaction_id: string | null;
+}

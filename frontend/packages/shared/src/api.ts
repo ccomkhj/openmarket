@@ -1,4 +1,4 @@
-import type { CashPaymentResult, CardPaymentResult, CloseSummary, HealthStatus, KassenbuchEntry, ZReport } from "./types";
+import type { CashPaymentResult, CardPaymentResult, CloseSummary, HealthStatus, KassenbuchEntry, ZReport, VariantDetail, PosTransactionListItem } from "./types";
 
 const API_BASE = "/api";
 
@@ -45,9 +45,11 @@ export const api = {
   },
   variants: {
     lookup: (barcode: string) =>
-      request<import("./types").VariantLookup>(`/variants/lookup?barcode=${encodeURIComponent(barcode)}`),
-    update: (id: number, data: Record<string, unknown>) =>
-      request<import("./types").ProductVariant>(`/variants/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+      request<VariantDetail>(`/variants/lookup?barcode=${encodeURIComponent(barcode)}`),
+    update: (id: number, data: Partial<Omit<VariantDetail, "id" | "product_id">>) =>
+      request<VariantDetail>(`/variants/${id}`, {
+        method: "PUT", body: JSON.stringify(data),
+      }),
   },
   collections: {
     list: () => request<import("./types").Collection[]>("/collections"),
@@ -163,6 +165,17 @@ export const api = {
       request<ZReport>(`/reports/z-report?date_from=${encodeURIComponent(date_from)}&date_to=${encodeURIComponent(date_to)}`),
     dsfinvkUrl: (date_from: string, date_to: string) =>
       `/api/reports/dsfinvk?date_from=${date_from}&date_to=${date_to}`,
+  },
+  posTransactions: {
+    list: (opts?: { limit?: number; offset?: number }) => {
+      const p = new URLSearchParams();
+      if (opts?.limit != null) p.set("limit", String(opts.limit));
+      if (opts?.offset != null) p.set("offset", String(opts.offset));
+      const qs = p.toString();
+      return request<{ items: PosTransactionListItem[]; limit: number; offset: number }>(
+        `/pos-transactions${qs ? "?" + qs : ""}`,
+      );
+    },
   },
   storno: {
     void: (txId: string) =>
