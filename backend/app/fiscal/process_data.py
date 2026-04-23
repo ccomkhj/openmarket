@@ -9,13 +9,7 @@ Reference: BMF DSFinV-K, section "Kassenbeleg-V1", field `processData`.
 from decimal import Decimal
 from typing import Mapping
 
-# DSFinV-K mandates five VAT slots in this exact order:
-#   A: 7%   (reduced "ermäßigt")
-#   B: 19%  (standard "regulär")
-#   C: 10.7% (pauschal Landwirte)
-#   D: 0%   (nicht steuerbar)
-#   E: 5.5% (pauschal)
-_VAT_SLOTS = ("7", "19", "10.7", "0", "5.5")
+from app.fiscal.vat import VAT_SLOTS
 
 # fiskaly payment-type identifiers per DSFinV-K.
 _PAYMENT_LABELS = {
@@ -36,12 +30,12 @@ def build_process_data(
     payment_breakdown: Mapping[str, Decimal],
 ) -> str:
     for rate in vat_breakdown:
-        if rate not in _VAT_SLOTS:
-            raise ValueError(f"unknown VAT rate {rate!r}; expected one of {_VAT_SLOTS}")
+        if rate not in VAT_SLOTS:
+            raise ValueError(f"unknown VAT rate {rate!r}; expected one of {VAT_SLOTS}")
 
     vat_section = "_".join(
         _fmt(vat_breakdown[slot]["gross"]) if slot in vat_breakdown else "0.00"
-        for slot in _VAT_SLOTS
+        for slot in VAT_SLOTS
     )
 
     pay_parts = []

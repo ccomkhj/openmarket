@@ -12,8 +12,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.fiscal.errors import FiscalError
 from app.fiscal.process_data import build_process_data
 from app.fiscal.service import FiscalService
+from app.fiscal.vat import VAT_SLOT_BY_PCT
 from app.models import (
-    LineItem, Order, PosTransaction, PosTransactionLine, TaxRate,
+    LineItem, PosTransaction, PosTransactionLine, TaxRate,
 )
 
 
@@ -37,9 +38,6 @@ class PosTransactionService:
         if existing:
             return existing
 
-        order = (await self.db.execute(
-            select(Order).where(Order.id == order_id)
-        )).scalar_one()
         line_items = (await self.db.execute(
             select(LineItem).where(LineItem.order_id == order_id)
         )).scalars().all()
@@ -88,16 +86,7 @@ class PosTransactionService:
             await self.db.refresh(tx)
             return tx
 
-        await self.db.execute(text("SET LOCAL fiscal.signing = 'on'"))
-        tx.tse_signature = finish.signature
-        tx.tse_signature_counter = finish.signature_counter
-        tx.tse_serial = finish.tss_serial
-        tx.tse_timestamp_start = finish.time_start
-        tx.tse_timestamp_finish = finish.time_end
-        tx.tse_process_type = finish.process_type
-        tx.tse_process_data = process_data
-        tx.finished_at = datetime.now(tz=timezone.utc)
-        tx.tse_pending = False
+        await self.fiscal.apply_finish_to_pos_transaction(tx, finish, process_data=process_data)
         await self.db.commit()
         await self.db.refresh(tx)
         return tx
@@ -124,19 +113,10 @@ class PosTransactionService:
         )
 
 
-_VAT_SLOT_BY_PCT = {
-    Decimal("7.00"): "7",
-    Decimal("19.00"): "19",
-    Decimal("10.70"): "10.7",
-    Decimal("0.00"): "0",
-    Decimal("5.50"): "5.5",
-}
-
-
 def _rate_to_slot(rate_pct: Decimal) -> str:
-    if rate_pct not in _VAT_SLOT_BY_PCT:
+    if rate_pct not in VAT_SLOT_BY_PCT:
         raise ValueError(f"no DSFinV-K slot for VAT rate {rate_pct}")
-    return _VAT_SLOT_BY_PCT[rate_pct]
+    return VAT_SLOT_BY_PCT[rate_pct]
 
 
 def _gross_for_line(li: LineItem) -> Decimal:
@@ -146,15 +126,13 @@ def _gross_for_line(li: LineItem) -> Decimal:
 
 
 def _line_from_order_item(li: LineItem, pos_tx_id: uuid.UUID) -> PosTransactionLine:
+    line_total = _gross_for_line(li)
     if li.quantity_kg is not None:
-        line_total_gross = li.price
         qty = Decimal("1")
-        unit_price = li.price / li.quantity_kg if li.quantity_kg else li.price
+        unit_price = li.price / li.quantity_kg
     else:
-        unit_price = li.price
         qty = Decimal(li.quantity)
-        line_total_gross = (li.price * li.quantity).quantize(Decimal("0.01"))
-
+        unit_price = li.price
     return PosTransactionLine(
         pos_transaction_id=pos_tx_id,
         sku=None,
@@ -162,7 +140,7 @@ def _line_from_order_item(li: LineItem, pos_tx_id: uuid.UUID) -> PosTransactionL
         quantity=qty,
         quantity_kg=li.quantity_kg,
         unit_price=unit_price.quantize(Decimal("0.0001")),
-        line_total_net=line_total_gross,
+        line_total_net=line_total,
         vat_rate=Decimal("0"),
         vat_amount=Decimal("0"),
     )

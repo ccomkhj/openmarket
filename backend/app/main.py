@@ -61,19 +61,20 @@ class LoggingMiddleware(BaseHTTPMiddleware):
 async def lifespan(app: FastAPI):
     if settings.fiskaly_api_key:
         async with async_session() as db:
-            fc = FiscalClient(
-                api_key=settings.fiskaly_api_key,
-                api_secret=settings.fiskaly_api_secret,
-                tss_id=settings.fiskaly_tss_id,
-                base_url=settings.fiskaly_base_url,
-                http=httpx.AsyncClient(timeout=15),
-            )
-            try:
-                n = await FiscalService(client=fc, db=db).retry_pending_signatures()
-                if n:
-                    logger.info("fiscal: re-signed %d pending transactions on startup", n)
-            except Exception as e:
-                logger.warning("fiscal startup retry failed: %s", e)
+            async with httpx.AsyncClient(timeout=15) as http_client:
+                fc = FiscalClient(
+                    api_key=settings.fiskaly_api_key,
+                    api_secret=settings.fiskaly_api_secret,
+                    tss_id=settings.fiskaly_tss_id,
+                    base_url=settings.fiskaly_base_url,
+                    http=http_client,
+                )
+                try:
+                    n = await FiscalService(client=fc, db=db).retry_pending_signatures()
+                    if n:
+                        logger.info("fiscal: re-signed %d pending transactions on startup", n)
+                except Exception as e:
+                    logger.warning("fiscal startup retry failed: %s", e)
     yield
 
 

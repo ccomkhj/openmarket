@@ -8,11 +8,12 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Mapping, Optional
 
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.fiscal.client import FiscalClient
 from app.fiscal.errors import FiscalError
-from app.models import TseSigningLog
+from app.models import PosTransaction, TseSigningLog
 
 
 @dataclass
@@ -136,15 +137,32 @@ class FiscalService:
         )
         return result
 
+    async def apply_finish_to_pos_transaction(self, tx, finish: FinishResult, process_data: str | None = None) -> None:
+        """Apply fiskaly finish result to an in-flight PosTransaction row.
+        Guarded by fiscal.signing=on session var — the single permitted
+        mutation of a fiscal row. Caller owns the commit boundary.
+        """
+        if self.db is None:
+            raise RuntimeError("apply_finish_to_pos_transaction requires db session")
+        await self.db.execute(text("SET LOCAL fiscal.signing = 'on'"))
+        tx.tse_signature = finish.signature
+        tx.tse_signature_counter = finish.signature_counter
+        tx.tse_serial = finish.tss_serial
+        tx.tse_timestamp_start = finish.time_start
+        tx.tse_timestamp_finish = finish.time_end
+        tx.tse_process_type = finish.process_type
+        if process_data is not None:
+            tx.tse_process_data = process_data
+        tx.finished_at = datetime.now(tz=timezone.utc)
+        tx.tse_pending = False
+
     async def retry_pending_signatures(self) -> int:
         """Re-sign every PosTransaction with tse_pending=True. Returns count signed."""
-        from app.models import PosTransaction
         if self.db is None:
             raise RuntimeError("retry_pending_signatures requires db session")
 
-        from sqlalchemy import select, text
         pending = (await self.db.execute(
-            select(PosTransaction).where(PosTransaction.tse_pending.is_(True))
+            select(PosTransaction).where(PosTransaction.tse_pending.is_(True)).limit(100)
         )).scalars().all()
 
         signed = 0
@@ -160,15 +178,7 @@ class FiscalService:
                 )
             except FiscalError:
                 continue
-            await self.db.execute(text("SET LOCAL fiscal.signing = 'on'"))
-            tx.tse_signature = finish.signature
-            tx.tse_signature_counter = finish.signature_counter
-            tx.tse_serial = finish.tss_serial
-            tx.tse_timestamp_start = finish.time_start
-            tx.tse_timestamp_finish = finish.time_end
-            tx.tse_process_type = finish.process_type
-            tx.finished_at = datetime.now(tz=timezone.utc)
-            tx.tse_pending = False
+            await self.apply_finish_to_pos_transaction(tx, finish)
             await self.db.commit()
             signed += 1
         return signed
