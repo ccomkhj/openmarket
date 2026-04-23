@@ -98,6 +98,8 @@ app.add_middleware(
 
 app.add_middleware(LoggingMiddleware)
 
+app.include_router(variants_router)
+app.include_router(pos_transactions_router)
 app.include_router(products_router)
 app.include_router(collections_router)
 app.include_router(inventory_router)
@@ -115,8 +117,6 @@ app.include_router(payment_router)
 app.include_router(kassenbuch_router)
 app.include_router(storno_router)
 app.include_router(reports_router)
-app.include_router(variants_router)
-app.include_router(pos_transactions_router)
 
 
 upload_path = Path(settings.upload_dir)

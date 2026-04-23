@@ -76,16 +76,15 @@ export function SalePage() {
     setError("");
     try {
       const result = await api.variants.lookup(barcode);
-      addToSale(result.product_title, {
+      addToSale(result.title, {
         id: result.id, product_id: result.product_id, title: result.title,
-        sku: result.sku, barcode: result.barcode, price: result.price,
-        compare_at_price: result.compare_at_price, position: 0,
+        sku: result.sku ?? "", barcode: result.barcode ?? "", price: result.price,
+        compare_at_price: null, position: 0,
         pricing_type: result.pricing_type,
-        weight_unit: result.weight_unit,
+        weight_unit: null,
         min_weight_kg: result.min_weight_kg,
         max_weight_kg: result.max_weight_kg,
         tare_kg: result.tare_kg,
-        barcode_format: result.barcode_format,
       });
       setBarcodeInput("");
     } catch {
