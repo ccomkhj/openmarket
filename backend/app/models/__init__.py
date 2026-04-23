@@ -7,6 +7,7 @@ from app.models.discount import Discount
 from app.models.tax_shipping import TaxRate, ShippingMethod
 from app.models.auth import User, Session, AuditEvent, LoginAttempt
 from app.models.pos_transaction import PosTransaction, PosTransactionLine, TseSigningLog  # noqa: F401
+from app.models.receipt_job import ReceiptPrintJob  # noqa: F401
 
 __all__ = [
     "Product", "ProductVariant", "ProductImage",
@@ -18,4 +19,5 @@ __all__ = [
     "TaxRate", "ShippingMethod",
     "User", "Session", "AuditEvent", "LoginAttempt",
     "PosTransaction", "PosTransactionLine", "TseSigningLog",
+    "ReceiptPrintJob",
 ]
