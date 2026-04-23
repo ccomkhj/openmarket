@@ -1,6 +1,7 @@
 """High-level fiskaly interactions: start/finish/retry."""
 from __future__ import annotations
 
+import base64
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -45,3 +46,49 @@ class FiscalService:
             state=resp.get("state", "ACTIVE"),
             latest_revision=int(resp.get("latest_revision", 1)),
         )
+
+    async def finish_transaction(
+        self, *,
+        tx_id: uuid.UUID,
+        latest_revision: int,
+        process_data: str,
+        process_type: str = "Kassenbeleg-V1",
+    ) -> FinishResult:
+        body = {
+            "state": "FINISHED",
+            "client_id": str(tx_id),
+            "schema": {
+                "standard_v1": {
+                    "receipt": {
+                        "receipt_type": "RECEIPT",
+                        "amounts_per_vat_rate": [],
+                        "amounts_per_payment_type": [],
+                    },
+                },
+            },
+            "process_type": process_type,
+            "process_data": _b64(process_data),
+        }
+        resp = await self.client.put(
+            f"/api/v2/tss/{self.client.tss_id}/tx/{tx_id}?last_revision={latest_revision}",
+            json=body,
+        )
+        sig = resp.get("signature") or {}
+        return FinishResult(
+            signature=sig.get("value", ""),
+            signature_counter=int(sig.get("counter", 0)),
+            tss_serial=resp.get("tss_serial_number", ""),
+            time_start=_utc_from_epoch(resp.get("time_start")),
+            time_end=_utc_from_epoch(resp.get("time_end")),
+            process_type=process_type,
+        )
+
+
+def _b64(s: str) -> str:
+    return base64.b64encode(s.encode("utf-8")).decode("ascii")
+
+
+def _utc_from_epoch(v: Any) -> datetime:
+    if v is None:
+        raise ValueError("missing timestamp in fiskaly response")
+    return datetime.fromtimestamp(int(v), tz=timezone.utc)
