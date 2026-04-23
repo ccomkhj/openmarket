@@ -75,6 +75,8 @@ export const api = {
       request<import("./types").InventoryLevel>("/inventory-levels/set", { method: "POST", body: JSON.stringify(data) }),
     adjust: (data: { inventory_item_id: number; location_id: number; available_adjustment: number }) =>
       request<import("./types").InventoryLevel>("/inventory-levels/adjust", { method: "POST", body: JSON.stringify(data) }),
+    lowStockCount: (locationId: number) =>
+      request<{ count: number }>(`/inventory-levels/low-stock-count?location_id=${locationId}`),
   },
   locations: {
     list: () => request<import("./types").Location[]>("/locations"),

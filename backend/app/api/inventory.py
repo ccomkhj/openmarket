@@ -41,3 +41,14 @@ async def adjust_level(body: InventoryAdjust, db: AsyncSession = Depends(get_db)
     if level is None:
         raise HTTPException(status_code=409, detail="Insufficient stock")
     return level
+
+
+@router.get("/inventory-levels/low-stock-count")
+async def low_stock_count(location_id: int, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(
+        select(InventoryLevel).where(
+            InventoryLevel.location_id == location_id,
+            InventoryLevel.available <= InventoryLevel.low_stock_threshold,
+        )
+    )
+    return {"count": len(result.scalars().all())}

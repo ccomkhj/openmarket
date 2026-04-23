@@ -5,7 +5,8 @@ import type { AnalyticsSummary } from "@openmarket/shared";
 export function AnalyticsPage() {
   const [summary, setSummary] = useState<AnalyticsSummary | null>(null);
   const [loading, setLoading] = useState(true);
-  const [days, setDays] = useState(30);
+  const [days, setDays] = useState(1);
+  const [lowStock, setLowStock] = useState<number | null>(null);
 
   const loadSummary = async (d: number) => {
     setLoading(true);
@@ -17,6 +18,12 @@ export function AnalyticsPage() {
   };
 
   useEffect(() => { loadSummary(days); }, [days]);
+
+  useEffect(() => {
+    api.inventory.lowStockCount(1)
+      .then((r) => setLowStock(r.count))
+      .catch(() => setLowStock(null));
+  }, []);
 
   const periodStyle = (d: number) => ({
     padding: "6px 14px",
@@ -48,8 +55,9 @@ export function AnalyticsPage() {
   return (
     <div style={baseStyles.container}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: spacing.lg }}>
-        <h2 style={{ margin: 0 }}>Analytics</h2>
+        <h2 style={{ margin: 0 }}>Today</h2>
         <div style={{ display: "flex", gap: "8px" }}>
+          <button onClick={() => setDays(1)} style={periodStyle(1)}>Today</button>
           <button onClick={() => setDays(7)} style={periodStyle(7)}>7d</button>
           <button onClick={() => setDays(30)} style={periodStyle(30)}>30d</button>
           <button onClick={() => setDays(90)} style={periodStyle(90)}>90d</button>
@@ -65,6 +73,7 @@ export function AnalyticsPage() {
             {metricCard("Revenue", `$${parseFloat(summary.total_revenue).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, colors.brand)}
             {metricCard("Orders", String(summary.total_orders))}
             {metricCard("Avg Order Value", `$${parseFloat(summary.average_order_value).toFixed(2)}`)}
+            {lowStock !== null && metricCard("Low-stock items", String(lowStock), lowStock > 0 ? colors.danger : undefined)}
           </div>
 
           {/* Daily sales bar chart */}
