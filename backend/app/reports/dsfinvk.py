@@ -87,16 +87,19 @@ def _bonpos(txs, lines):
     by_tx = {t.id: t for t in txs}
     headers = ["Z_KASSE_ID","Z_ERSTELLUNG","BON_ID","POS_ZEILE","GUTSCHEIN_NR","ARTIKELTEXT",
                "MENGE","FAKTOR","UMS_BRUTTO","UST_SCHLUESSEL","STNR"]
+    # POS_ZEILE must restart at 1 for each receipt (DSFinV-K §3.4).
+    pos_zeile_by_tx: dict = {}
     rows = []
-    for i, ln in enumerate(lines):
+    for ln in lines:
         t = by_tx.get(ln.pos_transaction_id)
         if not t:
             continue
+        pos_zeile_by_tx[t.id] = pos_zeile_by_tx.get(t.id, 0) + 1
         rows.append({
             "Z_KASSE_ID": settings.merchant_register_id,
             "Z_ERSTELLUNG": (t.finished_at or t.started_at).isoformat(),
             "BON_ID": str(t.id),
-            "POS_ZEILE": i + 1,
+            "POS_ZEILE": pos_zeile_by_tx[t.id],
             "ARTIKELTEXT": ln.title,
             "MENGE": _d(ln.quantity),
             "FAKTOR": "1",
