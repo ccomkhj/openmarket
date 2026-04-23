@@ -7,11 +7,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import Sequence
+from typing import TYPE_CHECKING, Sequence
 
 from escpos.printer import Dummy
 
 from app.models import PosTransaction, PosTransactionLine
+
+if TYPE_CHECKING:
+    from app.config import Settings
 
 
 _VAT_LETTER_BY_RATE = {
@@ -31,6 +34,19 @@ class ReceiptBuilder:
     merchant_vat_id: str
     cashier_display: str
     register_id: str
+
+    @classmethod
+    def from_settings(cls, cfg: "Settings", *, cashier_display: str = "") -> "ReceiptBuilder":
+        """Construct a builder from app settings. Use this in routers instead of
+        duplicating the field mapping in each service factory."""
+        return cls(
+            merchant_name=cfg.merchant_name,
+            merchant_address=cfg.merchant_address,
+            merchant_tax_id=cfg.merchant_tax_id,
+            merchant_vat_id=cfg.merchant_vat_id,
+            cashier_display=cashier_display,
+            register_id=cfg.merchant_register_id,
+        )
 
     def render(self, tx: PosTransaction, lines: Sequence[PosTransactionLine]) -> bytes:
         p = Dummy()

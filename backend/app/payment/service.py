@@ -1,6 +1,7 @@
 """Cash + card sale orchestration."""
 from __future__ import annotations
 
+import logging
 import uuid
 from dataclasses import dataclass
 from decimal import Decimal
@@ -10,8 +11,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Order, PosTransaction
 from app.payment.terminal import PaymentTerminalBackend
+from app.receipt.errors import ReceiptError
 from app.receipt.service import ReceiptService
 from app.services.pos_transaction import PosTransactionService
+
+log = logging.getLogger(__name__)
 
 
 @dataclass
@@ -57,8 +61,8 @@ class PaymentService:
         )
         try:
             self.receipts.backend.pulse_cash_drawer()
-        except Exception:
-            pass
+        except (ReceiptError, OSError) as exc:
+            log.warning("cash drawer pulse failed (sale succeeded): %s", exc)
         job = await self.receipts.print_receipt(tx.id)
         return PayResult(transaction=tx, change=change, receipt_status=job.status)
 

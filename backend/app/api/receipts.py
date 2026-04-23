@@ -16,23 +16,12 @@ from app.receipt.service import ReceiptService
 router = APIRouter(prefix="/api", tags=["receipts"])
 
 
-def _builder() -> ReceiptBuilder:
-    return ReceiptBuilder(
-        merchant_name=settings.merchant_name,
-        merchant_address=settings.merchant_address,
-        merchant_tax_id=settings.merchant_tax_id,
-        merchant_vat_id=settings.merchant_vat_id,
-        cashier_display="",
-        register_id=settings.merchant_register_id,
-    )
-
-
 @router.post(
     "/receipts/{pos_transaction_id}/reprint",
     dependencies=[Depends(require_any_staff)],
 )
 async def reprint(pos_transaction_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
-    svc = ReceiptService(db=db, builder=_builder(), backend=get_backend())
+    svc = ReceiptService(db=db, builder=ReceiptBuilder.from_settings(settings), backend=get_backend())
     try:
         job = await svc.print_receipt(pos_transaction_id)
     except Exception as e:

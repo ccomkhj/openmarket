@@ -38,14 +38,6 @@ def _terminal() -> PaymentTerminalBackend:
     )
 
 
-def _builder() -> ReceiptBuilder:
-    return ReceiptBuilder(
-        merchant_name=settings.merchant_name, merchant_address=settings.merchant_address,
-        merchant_tax_id=settings.merchant_tax_id, merchant_vat_id=settings.merchant_vat_id,
-        cashier_display="", register_id=settings.merchant_register_id,
-    )
-
-
 def _service(db: AsyncSession) -> PaymentService:
     fiscal_client = FiscalClient(
         api_key=settings.fiskaly_api_key, api_secret=settings.fiskaly_api_secret,
@@ -56,7 +48,7 @@ def _service(db: AsyncSession) -> PaymentService:
     return PaymentService(
         db=db,
         pos_tx=PosTransactionService(db=db, fiscal=fiscal),
-        receipts=ReceiptService(db=db, builder=_builder(), backend=get_backend()),
+        receipts=ReceiptService(db=db, builder=ReceiptBuilder.from_settings(settings), backend=get_backend()),
         terminal=_terminal(),
     )
 
