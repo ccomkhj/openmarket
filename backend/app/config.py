@@ -26,6 +26,11 @@ class Settings(BaseSettings):
 
     hibp_enabled: bool = True
 
+    fiskaly_api_key: str = ""
+    fiskaly_api_secret: str = ""
+    fiskaly_tss_id: str = ""
+    fiskaly_base_url: str = "https://kassensichv-middleware.fiskaly.com"
+
     model_config = {"env_prefix": "", "env_file": ".env", "extra": "ignore"}
 
     @field_validator("session_secret_key")

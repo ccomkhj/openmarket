@@ -52,3 +52,25 @@ def test_settings_parses_trusted_proxy_cidrs_custom():
         trusted_proxy_cidrs="127.0.0.1/32, 172.20.0.0/16",
     )
     assert s.trusted_proxy_cidr_list == ["127.0.0.1/32", "172.20.0.0/16"]
+
+
+def test_settings_parses_fiskaly_config():
+    s = Settings(
+        session_secret_key="x" * 48,
+        fiskaly_api_key="key-123",
+        fiskaly_api_secret="secret-456",
+        fiskaly_tss_id="tss-abc",
+    )
+    assert s.fiskaly_api_key == "key-123"
+    assert s.fiskaly_api_secret == "secret-456"
+    assert s.fiskaly_tss_id == "tss-abc"
+    assert s.fiskaly_base_url == "https://kassensichv-middleware.fiskaly.com"
+
+
+def test_settings_fiskaly_base_url_overridable():
+    s = Settings(
+        session_secret_key="x" * 48,
+        fiskaly_api_key="k", fiskaly_api_secret="s", fiskaly_tss_id="t",
+        fiskaly_base_url="https://sandbox.example.com",
+    )
+    assert s.fiskaly_base_url == "https://sandbox.example.com"
