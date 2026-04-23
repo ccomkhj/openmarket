@@ -36,6 +36,7 @@ from app.api.kassenbuch import router as kassenbuch_router
 from app.api.storno import router as storno_router
 from app.api.reports import router as reports_router
 from app.api.variants import router as variants_router
+from app.api.pos_transactions import router as pos_transactions_router
 from app.ws.manager import manager
 from app.fiscal.client import FiscalClient
 from app.fiscal.service import FiscalService
@@ -115,6 +116,7 @@ app.include_router(kassenbuch_router)
 app.include_router(storno_router)
 app.include_router(reports_router)
 app.include_router(variants_router)
+app.include_router(pos_transactions_router)
 
 
 upload_path = Path(settings.upload_dir)
