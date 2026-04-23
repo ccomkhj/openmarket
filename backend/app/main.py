@@ -129,6 +129,19 @@ async def health():
     return {"status": "ok"}
 
 
+@app.get("/api/store-info")
+async def store_info():
+    return {
+        "merchant_name": settings.merchant_name,
+        "merchant_address": settings.merchant_address,
+        "merchant_tax_id": settings.merchant_tax_id,
+        "merchant_vat_id": settings.merchant_vat_id,
+        "merchant_register_id": settings.merchant_register_id,
+        "fiskaly_configured": bool(settings.fiskaly_api_key),
+        "terminal_configured": bool(settings.terminal_host),
+    }
+
+
 @app.get("/api/ws")
 async def websocket_http_probe(request: Request, db: AsyncSession = Depends(get_db)):
     # Guard the ws path at the HTTP layer so unauthenticated upgrade attempts

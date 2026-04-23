@@ -8,6 +8,7 @@ export function SettingsPage() {
   const [shippingMethods, setShippingMethods] = useState<ShippingMethod[]>([]);
   const [discounts, setDiscounts] = useState<Discount[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
+  const [storeInfo, setStoreInfo] = useState<Awaited<ReturnType<typeof api.storeInfo>> | null>(null);
   const [loading, setLoading] = useState(true);
 
   const [taxName, setTaxName] = useState("");
@@ -27,10 +28,12 @@ export function SettingsPage() {
 
   const loadAll = async () => {
     setLoading(true);
-    const [t, s, d, l] = await Promise.all([
+    const [t, s, d, l, si] = await Promise.all([
       api.taxRates.list(), api.shippingMethods.list(), api.discounts.list(), api.locations.list(),
+      api.storeInfo().catch(() => null),
     ]);
     setTaxRates(t); setShippingMethods(s); setDiscounts(d); setLocations(l);
+    setStoreInfo(si);
     setLoading(false);
   };
 
@@ -77,6 +80,31 @@ export function SettingsPage() {
   return (
     <div style={baseStyles.container}>
       <h2 style={{ marginBottom: spacing.lg }}>Settings</h2>
+
+      {/* Store Info */}
+      {storeInfo && (
+        <div style={{ ...baseStyles.card, marginBottom: spacing.lg }}>
+          <h3 style={sectionTitle}>Store Info</h3>
+          <div style={{ fontSize: "14px", display: "grid", gridTemplateColumns: "180px 1fr", rowGap: 6 }}>
+            <span style={{ color: colors.textSecondary }}>Name</span><span>{storeInfo.merchant_name}</span>
+            <span style={{ color: colors.textSecondary }}>Address</span><span>{storeInfo.merchant_address || <em>not set</em>}</span>
+            <span style={{ color: colors.textSecondary }}>Tax ID (Steuernr.)</span><span>{storeInfo.merchant_tax_id || <em>not set</em>}</span>
+            <span style={{ color: colors.textSecondary }}>VAT ID (USt-IdNr.)</span><span>{storeInfo.merchant_vat_id || <em>not set</em>}</span>
+            <span style={{ color: colors.textSecondary }}>Register ID</span><span>{storeInfo.merchant_register_id}</span>
+            <span style={{ color: colors.textSecondary }}>Fiskaly TSE</span>
+            <span style={{ color: storeInfo.fiskaly_configured ? "green" : colors.danger }}>
+              {storeInfo.fiskaly_configured ? "configured" : "not configured"}
+            </span>
+            <span style={{ color: colors.textSecondary }}>Card terminal</span>
+            <span style={{ color: storeInfo.terminal_configured ? "green" : colors.textSecondary }}>
+              {storeInfo.terminal_configured ? "configured" : "mock (no real card auth)"}
+            </span>
+          </div>
+          <p style={{ marginTop: spacing.md, fontSize: "13px", color: colors.textSecondary }}>
+            To change these, edit <code>.env</code> on the server and run <code>docker compose restart api</code>. See <code>docs/ops/store-info.md</code>.
+          </p>
+        </div>
+      )}
 
       {/* Locations */}
       <div style={{ ...baseStyles.card, marginBottom: spacing.lg }}>

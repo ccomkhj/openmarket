@@ -163,6 +163,13 @@ export const api = {
     card: (data: { client_id: string; order_id: number }) =>
       request<CardPaymentResult>("/payment/card", { method: "POST", body: JSON.stringify(data) }),
   },
+  storeInfo: () =>
+    request<{
+      merchant_name: string; merchant_address: string;
+      merchant_tax_id: string; merchant_vat_id: string;
+      merchant_register_id: string;
+      fiskaly_configured: boolean; terminal_configured: boolean;
+    }>("/store-info"),
   receipts: {
     reprint: (posTransactionId: string) =>
       request<{ id: number; pos_transaction_id: string; status: string; attempts: number; last_error: string | null; printed_at: string | null }>(
