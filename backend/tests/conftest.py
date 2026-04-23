@@ -50,6 +50,11 @@ BEGIN
     IF current_setting('fiscal.signing', true) = 'on' THEN
         RETURN NEW;
     END IF;
+    IF TG_TABLE_NAME = 'pos_transactions' AND TG_OP = 'UPDATE' THEN
+        IF OLD.finished_at IS NULL AND NEW.finished_at IS NULL THEN
+            RETURN NEW;
+        END IF;
+    END IF;
     RAISE EXCEPTION 'Fiscal rows are immutable (TG_OP=%, table=%)', TG_OP, TG_TABLE_NAME;
 END;
 $$ LANGUAGE plpgsql;
