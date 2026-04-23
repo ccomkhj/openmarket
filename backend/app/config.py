@@ -41,6 +41,10 @@ class Settings(BaseSettings):
     merchant_vat_id: str = ""
     merchant_register_id: str = "KASSE-01"
 
+    terminal_host: str = ""
+    terminal_port: int = 22000
+    terminal_password: str = "000000"
+
     model_config = {"env_prefix": "", "env_file": ".env", "extra": "ignore"}
 
     @field_validator("session_secret_key")

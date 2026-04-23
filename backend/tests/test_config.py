@@ -92,3 +92,20 @@ def test_settings_parses_printer_config_overrides():
     assert s.printer_vendor_id == 0x0519
     assert s.printer_product_id == 0x0003
     assert s.printer_profile == "TSP143"
+
+
+def test_settings_parses_terminal_config():
+    s = Settings(
+        session_secret_key="x" * 48,
+        terminal_host="192.168.1.50", terminal_port=22000,
+        terminal_password="000000",
+    )
+    assert s.terminal_host == "192.168.1.50"
+    assert s.terminal_port == 22000
+    assert s.terminal_password == "000000"
+
+
+def test_settings_terminal_defaults_empty():
+    s = Settings(session_secret_key="x" * 48)
+    assert s.terminal_host == ""
+    assert s.terminal_port == 22000
