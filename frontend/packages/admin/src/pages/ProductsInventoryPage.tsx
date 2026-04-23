@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, Fragment } from "react";
+import { VariantEditModal } from "./VariantEdit";
 import { api, useWebSocket, useToast, useDebounce, Button, Spinner, ConfirmDialog, CameraCapture, colors, baseStyles, spacing, radius, BarcodeScanner, OCRScanner } from "@openmarket/shared";
-import type { Product, ProductListWithPrice, ProductVariant, InventoryLevel, Location } from "@openmarket/shared";
+import type { Product, ProductListWithPrice, ProductVariant, InventoryLevel, Location, VariantDetail } from "@openmarket/shared";
 
 type PricingType = "fixed" | "by_weight";
 type WeightUnit = "kg" | "g" | "100g";
@@ -56,6 +57,7 @@ export function ProductsInventoryPage() {
   const [showOCRScanner, setShowOCRScanner] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
   const [capturedImage, setCapturedImage] = useState<{ blob: Blob; preview: string } | null>(null);
+  const [variantForModal, setVariantForModal] = useState<VariantDetail | null>(null);
   const { toast } = useToast();
   const [locations, setLocations] = useState<Location[]>([]);
   const [selectedLocationId, setSelectedLocationId] = useState<number>(1);
@@ -371,7 +373,18 @@ export function ProductsInventoryPage() {
                                       {isEditing ? (
                                         <Button variant="ghost" size="sm" onClick={cancelEditVariant}>Cancel</Button>
                                       ) : (
-                                        <Button variant="secondary" size="sm" onClick={() => startEditVariant(v)}>Edit</Button>
+                                        <div style={{ display: "flex", gap: "4px" }}>
+                                          <Button variant="secondary" size="sm" onClick={() => startEditVariant(v)}>Edit</Button>
+                                          <Button variant="secondary" size="sm" onClick={() => setVariantForModal({
+                                            id: v.id, product_id: v.product_id, title: v.title,
+                                            sku: v.sku || null, barcode: v.barcode || null,
+                                            price: v.price, pricing_type: (v.pricing_type ?? "fixed") as "fixed" | "by_weight" | "by_volume",
+                                            vat_rate: "19.00",
+                                            min_weight_kg: v.min_weight_kg ?? null,
+                                            max_weight_kg: v.max_weight_kg ?? null,
+                                            tare_kg: v.tare_kg ?? null,
+                                          })}>Modal Edit</Button>
+                                        </div>
                                       )}
                                     </td>
                                   </tr>
@@ -480,6 +493,17 @@ export function ProductsInventoryPage() {
             setShowCamera(false);
           }}
           onClose={() => setShowCamera(false)}
+        />
+      )}
+      {variantForModal && (
+        <VariantEditModal
+          initial={variantForModal}
+          onSaved={async () => {
+            setVariantForModal(null);
+            if (expandedId != null) setExpandedProduct(await api.products.get(expandedId));
+            toast("Variant updated");
+          }}
+          onCancel={() => setVariantForModal(null)}
         />
       )}
     </div>
