@@ -5,6 +5,9 @@
   "type": "module",
   "main": "src/index.ts",
   "types": "src/index.ts",
+  "scripts": {
+    "build": "tsc -b"
+  },
   "dependencies": {
     "html5-qrcode": "^2.3.8",
     "react": "^18.3.1",
