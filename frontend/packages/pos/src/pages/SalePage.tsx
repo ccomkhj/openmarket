@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { api, useWebSocket, useToast, Button, ConfirmDialog, colors, baseStyles, spacing, radius, BarcodeScanner } from "@openmarket/shared";
-import type { ProductVariant, CashPaymentResult, CardPaymentResult, Order } from "@openmarket/shared";
+import type { ProductVariant, CashPaymentResult, CardPaymentResult, Order, Customer, ParkedSale } from "@openmarket/shared";
 import { Receipt } from "../components/Receipt";
 import type { ReceiptItem } from "../components/Receipt";
 import { ReturnModal } from "../components/ReturnModal";
@@ -8,6 +8,10 @@ import { WeighedProductInput } from "../components/WeighedProductInput";
 import { HealthDots } from "../components/HealthDots";
 import { PaymentCashModal } from "../components/PaymentCashModal";
 import { PaymentCardModal } from "../components/PaymentCardModal";
+import { CustomerAttachModal } from "../components/CustomerAttachModal";
+import { ParkedSalesPicker } from "../components/ParkedSalesPicker";
+import { ManagerOverrideModal } from "../components/ManagerOverrideModal";
+import { PaymentSplitModal } from "../components/PaymentSplitModal";
 
 interface SaleItem {
   variant: ProductVariant;
@@ -32,20 +36,40 @@ export function SalePage() {
   const { toast } = useToast();
   const [confirmVoid, setConfirmVoid] = useState(false);
   const [weighedPrompt, setWeighedPrompt] = useState<WeighedPrompt | null>(null);
-  const [payMethod, setPayMethod] = useState<"none" | "cash" | "card">("none");
+  const [payMethod, setPayMethod] = useState<"none" | "cash" | "card" | "split">("none");
   const [pendingOrder, setPendingOrder] = useState<Order | null>(null);
   const [pendingTotal, setPendingTotal] = useState<string>("0.00");
   const [lastTxId, setLastTxId] = useState<string | null>(null);
   const [lastSale, setLastSale] = useState<{ orderNumber: string; total: string; change: string; method: "cash" | "card" } | null>(null);
   const [confirmStorno, setConfirmStorno] = useState(false);
+  const [attachedCustomer, setAttachedCustomer] = useState<Customer | null>(null);
+  const [showCustomerModal, setShowCustomerModal] = useState(false);
+  const [showParkedPicker, setShowParkedPicker] = useState(false);
+  const [parkedCount, setParkedCount] = useState(0);
+  const [parking, setParking] = useState(false);
+  const [confirmPark, setConfirmPark] = useState(false);
+  const [stornoOverrideOpen, setStornoOverrideOpen] = useState(false);
 
-  useEffect(() => { barcodeRef.current?.focus(); }, []);
+  const reloadParkedCount = useCallback(() => {
+    api.parkedSales.list()
+      .then((rows) => setParkedCount(rows.length))
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => { barcodeRef.current?.focus(); reloadParkedCount(); }, [reloadParkedCount]);
 
   const handleInventoryUpdate = useCallback(() => {}, []);
   useWebSocket(handleInventoryUpdate);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Suppress F-key shortcuts whenever a modal owns the screen — otherwise
+      // F4/F8/F9 fire underneath things like the customer-attach or parked-sale picker.
+      const modalOpen =
+        showCustomerModal || showParkedPicker ||
+        confirmVoid || confirmPark || confirmStorno || stornoOverrideOpen ||
+        receiptData !== null || weighedPrompt !== null ||
+        payMethod !== "none" || showReturn;
       if (e.key === "Escape") {
         if (weighedPrompt) { setWeighedPrompt(null); }
         else if (receiptData) { setReceiptData(null); barcodeRef.current?.focus(); }
@@ -53,7 +77,8 @@ export function SalePage() {
         else if (showReturn) { setShowReturn(false); }
         return;
       }
-      if (e.key === "F8" && saleItems.length > 0 && !receiptData && payMethod === "none") {
+      if (modalOpen) return;
+      if (e.key === "F8" && saleItems.length > 0) {
         e.preventDefault();
         handlePayCash();
         return;
@@ -71,7 +96,11 @@ export function SalePage() {
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [saleItems.length, receiptData, error, showReturn, weighedPrompt, payMethod]);
+  }, [
+    saleItems.length, receiptData, error, showReturn, weighedPrompt, payMethod,
+    showCustomerModal, showParkedPicker, confirmVoid, confirmPark, confirmStorno,
+    stornoOverrideOpen,
+  ]);
 
   const addByBarcode = async (barcode: string) => {
     setError("");
@@ -140,7 +169,7 @@ export function SalePage() {
   const total = saleItems.reduce((sum, item) => sum + liveLineTotal(item), 0);
 
   const voidSale = () => setConfirmVoid(true);
-  const doVoidSale = () => { setSaleItems([]); setConfirmVoid(false); toast("Sale voided"); barcodeRef.current?.focus(); };
+  const doVoidSale = () => { setSaleItems([]); setAttachedCustomer(null); setConfirmVoid(false); toast("Sale voided"); barcodeRef.current?.focus(); };
 
   const buildReceiptItems = (order: Order): { receiptItems: ReceiptItem[]; receiptTotal: number; orderNumber: string } => {
     const serverLines = order.line_items ?? [];
@@ -162,19 +191,91 @@ export function SalePage() {
   const createOrderForPayment = async (): Promise<Order | null> => {
     setError("");
     try {
-      const order = await api.orders.create({
+      const body: Record<string, unknown> = {
         source: "pos",
         line_items: saleItems.map((i) => {
           const line: Record<string, unknown> = { variant_id: i.variant.id, quantity: i.quantity };
           if (i.quantityKg) line.quantity_kg = i.quantityKg;
           return line;
         }),
-      });
+      };
+      if (attachedCustomer) {
+        body.customer_id = attachedCustomer.id;
+        body.customer_name = `${attachedCustomer.first_name} ${attachedCustomer.last_name}`.trim();
+        body.customer_phone = attachedCustomer.phone;
+      }
+      const order = await api.orders.create(body);
       return order;
     } catch (e: any) {
       setError(e.message);
       toast("Order creation failed", "error");
       return null;
+    }
+  };
+
+  const parkSale = async () => {
+    if (saleItems.length === 0) return;
+    setParking(true);
+    try {
+      await api.parkedSales.create({
+        items: saleItems.map((i) => ({
+          variant_id: i.variant.id,
+          product_title: i.productTitle,
+          variant_title: i.variant.title,
+          price: i.variant.price,
+          quantity: i.quantity,
+          quantity_kg: i.quantityKg ?? null,
+        })),
+        customer_id: attachedCustomer?.id ?? null,
+        note: "",
+      });
+      setSaleItems([]);
+      setAttachedCustomer(null);
+      toast("Sale parked");
+      reloadParkedCount();
+      barcodeRef.current?.focus();
+    } catch (e: any) {
+      toast(`Park failed: ${e.message}`, "error");
+    } finally {
+      setParking(false);
+      setConfirmPark(false);
+    }
+  };
+
+  const recallSale = async (parked: ParkedSale) => {
+    if (saleItems.length > 0) {
+      toast("Park or void the current sale first", "error");
+      return;
+    }
+    try {
+      const items: SaleItem[] = parked.items.map((p) => ({
+        variant: {
+          id: p.variant_id,
+          product_id: 0,
+          title: p.variant_title,
+          sku: "", barcode: "",
+          price: p.price,
+          compare_at_price: null,
+          position: 0,
+        },
+        productTitle: p.product_title,
+        quantity: p.quantity,
+        quantityKg: p.quantity_kg ?? undefined,
+      }));
+      setSaleItems(items);
+      if (parked.customer_id != null) {
+        try {
+          const c = await api.customers.get(parked.customer_id);
+          setAttachedCustomer(c);
+        } catch { /* customer might be gone — ignore */ }
+      }
+      await api.parkedSales.cancel(parked.id);
+      reloadParkedCount();
+      setShowParkedPicker(false);
+      toast("Sale recalled");
+      barcodeRef.current?.focus();
+    } catch (e: any) {
+      toast(`Recall failed: ${e.message}`, "error");
     }
   };
 
@@ -194,9 +295,37 @@ export function SalePage() {
     setPayMethod("card");
   };
 
+  const handlePaySplit = async () => {
+    const order = await createOrderForPayment();
+    if (!order) return;
+    setPendingOrder(order);
+    setPendingTotal(total.toFixed(2));
+    setPayMethod("split");
+  };
+
+  const handleSplitPaid = (r: { transactionId: string; cashAmount: string; cardAmount: string }) => {
+    if (pendingOrder) {
+      setLastSale({
+        orderNumber: pendingOrder.order_number,
+        total: pendingTotal,
+        change: "0.00",
+        method: "cash",
+      });
+      const { receiptItems, receiptTotal, orderNumber } = buildReceiptItems(pendingOrder);
+      setSaleItems([]);
+      setAttachedCustomer(null);
+      setPayMethod("none");
+      setPendingOrder(null);
+      setLastTxId(r.transactionId);
+      setReceiptData({ orderNumber, items: receiptItems, total: receiptTotal });
+      toast(`Sale completed (cash €${r.cashAmount} + card €${r.cardAmount})`);
+    }
+  };
+
   const handlePaymentSuccess = (txId: string, order: Order) => {
     const { receiptItems, receiptTotal, orderNumber } = buildReceiptItems(order);
     setSaleItems([]);
+    setAttachedCustomer(null);
     setPayMethod("none");
     setPendingOrder(null);
     setLastTxId(txId);
@@ -323,7 +452,52 @@ export function SalePage() {
       <div style={{ width: 420, padding: spacing.lg, display: "flex", flexDirection: "column", background: colors.surfaceMuted }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: spacing.md }}>
           <h3 style={{ margin: 0 }}>Current Sale</h3>
-          {saleItems.length > 0 && <Button variant="danger" size="sm" onClick={voidSale}>Void (F4)</Button>}
+          <div style={{ display: "flex", gap: 6 }}>
+            {parkedCount > 0 && (
+              <Button variant="secondary" size="sm" onClick={() => setShowParkedPicker(true)}>
+                Recall ({parkedCount})
+              </Button>
+            )}
+            {saleItems.length > 0 && (
+              <Button variant="secondary" size="sm" loading={parking} onClick={() => setConfirmPark(true)}>
+                Park
+              </Button>
+            )}
+            {saleItems.length > 0 && <Button variant="danger" size="sm" onClick={voidSale}>Void (F4)</Button>}
+          </div>
+        </div>
+
+        {/* Customer chip */}
+        <div style={{
+          display: "flex", alignItems: "center", gap: spacing.sm,
+          marginBottom: spacing.md,
+          padding: "8px 12px",
+          background: attachedCustomer ? colors.brandLight : colors.surface,
+          border: `1px solid ${attachedCustomer ? colors.brand : colors.border}`,
+          borderRadius: radius.sm,
+        }}>
+          <div style={{ flex: 1, fontSize: 13 }}>
+            {attachedCustomer ? (
+              <>
+                <div style={{ fontWeight: 600, color: colors.brand }}>
+                  👤 {attachedCustomer.first_name} {attachedCustomer.last_name}
+                </div>
+                <div style={{ color: colors.textSecondary, fontSize: 12 }}>
+                  {attachedCustomer.phone}{attachedCustomer.email ? ` · ${attachedCustomer.email}` : ""}
+                </div>
+              </>
+            ) : (
+              <span style={{ color: colors.textSecondary }}>Walk-in customer</span>
+            )}
+          </div>
+          {attachedCustomer ? (
+            <>
+              <Button variant="ghost" size="sm" onClick={() => setShowCustomerModal(true)}>Change</Button>
+              <Button variant="ghost" size="sm" style={{ color: colors.danger }} onClick={() => setAttachedCustomer(null)}>Remove</Button>
+            </>
+          ) : (
+            <Button variant="secondary" size="sm" onClick={() => setShowCustomerModal(true)}>+ Customer</Button>
+          )}
         </div>
 
         <div style={{ flex: 1, overflowY: "auto" }}>
@@ -375,6 +549,16 @@ export function SalePage() {
               Pay Card
             </Button>
           </div>
+          <Button
+            variant="secondary"
+            size="md"
+            fullWidth
+            disabled={saleItems.length === 0 || payMethod !== "none"}
+            onClick={handlePaySplit}
+            style={{ marginBottom: spacing.sm }}
+          >
+            Split cash + card
+          </Button>
           {lastSale && (
             <div style={{
               marginTop: spacing.sm,
@@ -466,14 +650,59 @@ export function SalePage() {
           onCancel={() => { setPayMethod("none"); setPendingOrder(null); }}
         />
       )}
+      {payMethod === "split" && pendingOrder !== null && (
+        <PaymentSplitModal
+          orderId={pendingOrder.id}
+          total={pendingTotal}
+          onPaid={handleSplitPaid}
+          onCancel={() => { setPayMethod("none"); setPendingOrder(null); }}
+        />
+      )}
       {confirmStorno && (
         <ConfirmDialog
           title="Storno last sale"
-          message="This will void the last completed transaction via TSE. The receipt will be cancelled. This cannot be undone."
-          confirmLabel="Void transaction"
+          message="This will void the last completed transaction via TSE. The receipt will be cancelled. This cannot be undone. A manager will be asked to authorize."
+          confirmLabel="Continue"
           variant="danger"
-          onConfirm={doStorno}
+          onConfirm={() => { setConfirmStorno(false); setStornoOverrideOpen(true); }}
           onCancel={() => setConfirmStorno(false)}
+        />
+      )}
+      {stornoOverrideOpen && (
+        <ManagerOverrideModal
+          title="Authorize Storno"
+          description="A manager must authorize voiding the last completed (TSE-signed) sale."
+          action="storno"
+          context={{ pos_transaction_id: lastTxId }}
+          onAuthorized={(auth) => {
+            setStornoOverrideOpen(false);
+            toast(`Authorized by ${auth.full_name}`);
+            doStorno();
+          }}
+          onCancel={() => setStornoOverrideOpen(false)}
+        />
+      )}
+      {showCustomerModal && (
+        <CustomerAttachModal
+          onAttach={(c) => { setAttachedCustomer(c); setShowCustomerModal(false); toast(`Attached ${c.first_name}`); }}
+          onClose={() => setShowCustomerModal(false)}
+        />
+      )}
+      {showParkedPicker && (
+        <ParkedSalesPicker
+          onRecall={recallSale}
+          onClose={() => setShowParkedPicker(false)}
+        />
+      )}
+      {confirmPark && (
+        <ConfirmDialog
+          title="Park sale"
+          message="Save this cart for later. You can recall it from the cart header."
+          confirmLabel="Park"
+          variant="primary"
+          loading={parking}
+          onConfirm={parkSale}
+          onCancel={() => setConfirmPark(false)}
         />
       )}
     </div>

@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useRef, Fragment } from "react";
 import { VariantEditModal } from "./VariantEdit";
 import { api, useWebSocket, useToast, useDebounce, Button, SkeletonRows, ConfirmDialog, CameraCapture, colors, baseStyles, spacing, radius, BarcodeScanner, OCRScanner } from "@openmarket/shared";
+import { useQueryParam } from "../hooks/useQueryParam";
 import type { Product, ProductListWithPrice, ProductVariant, InventoryLevel, Location, VariantDetail } from "@openmarket/shared";
 
 type PricingType = "fixed" | "by_weight";
@@ -35,7 +36,7 @@ const makeDraftFromVariant = (v: ProductVariant): VariantDraft => ({
 export function ProductsInventoryPage() {
   const [products, setProducts] = useState<ProductListWithPrice[]>([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useQueryParam("q");
   const [inventory, setInventory] = useState<Record<number, InventoryLevel>>({});
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [expandedProduct, setExpandedProduct] = useState<Product | null>(null);

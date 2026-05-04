@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { CSSProperties } from "react";
 import { api, Button, Spinner, colors, baseStyles, spacing, radius } from "@openmarket/shared";
 import type { Customer, OrderListItem } from "@openmarket/shared";
+import { usePageMeta } from "../hooks/usePageMeta";
 
 function fulfillmentBadgeStyle(status: string): CSSProperties {
   const fulfilled = status === "fulfilled";
@@ -18,6 +19,7 @@ function fulfillmentBadgeStyle(status: string): CSSProperties {
 }
 
 export function AccountPage() {
+  usePageMeta("Account", "Look up your account and orders.");
   const [phone, setPhone] = useState("");
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [orders, setOrders] = useState<OrderListItem[]>([]);

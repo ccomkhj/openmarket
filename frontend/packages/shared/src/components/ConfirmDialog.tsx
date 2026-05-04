@@ -7,13 +7,14 @@ interface ConfirmDialogProps {
   confirmLabel?: string;
   cancelLabel?: string;
   variant?: "danger" | "primary";
+  loading?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
 }
 
 export function ConfirmDialog({
   title, message, confirmLabel = "Confirm", cancelLabel = "Cancel",
-  variant = "primary", onConfirm, onCancel,
+  variant = "primary", loading = false, onConfirm, onCancel,
 }: ConfirmDialogProps) {
   return (
     <div
@@ -22,7 +23,7 @@ export function ConfirmDialog({
         display: "flex", alignItems: "center", justifyContent: "center",
         zIndex: 10000, fontFamily: font.body,
       }}
-      onClick={(e) => { if (e.target === e.currentTarget) onCancel(); }}
+      onClick={(e) => { if (e.target === e.currentTarget && !loading) onCancel(); }}
     >
       <div style={{
         background: colors.surface, borderRadius: radius.md,
@@ -31,8 +32,8 @@ export function ConfirmDialog({
         <h3 style={{ margin: "0 0 8px", fontSize: "16px" }}>{title}</h3>
         <p style={{ color: colors.textSecondary, fontSize: "14px", margin: "0 0 20px" }}>{message}</p>
         <div style={{ display: "flex", gap: spacing.sm, justifyContent: "flex-end" }}>
-          <Button variant="ghost" onClick={onCancel}>{cancelLabel}</Button>
-          <Button variant={variant} onClick={onConfirm}>{confirmLabel}</Button>
+          <Button variant="ghost" onClick={onCancel} disabled={loading}>{cancelLabel}</Button>
+          <Button variant={variant} onClick={onConfirm} loading={loading}>{confirmLabel}</Button>
         </div>
       </div>
     </div>

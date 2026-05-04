@@ -11,7 +11,7 @@ from app.models import User
 from app.schemas.auth import (
     LoginRequest, LoginResponse, PosLoginRequest, PosLoginResponse,
     SetupRequest, MfaEnrollResponse, MfaVerifyRequest, MeResponse,
-    BootstrapStatus,
+    BootstrapStatus, ManagerOverrideRequest, ManagerOverrideResponse,
 )
 from app.services.audit import log_event
 from app.services.mfa import new_totp_secret, totp_uri, verify_totp
@@ -68,7 +68,7 @@ def _set_session_cookie(response: Response, token: str) -> None:
         key=settings.session_cookie_name,
         value=token,
         httponly=True,
-        secure=True,
+        secure=settings.session_cookie_secure,
         samesite="lax",
         max_age=settings.admin_session_absolute_max_hours * 3600,
         path="/",
@@ -193,6 +193,64 @@ async def pos_login(req: PosLoginRequest, response: Response, request: Request, 
     await db.commit()
     _set_session_cookie(response, sess.id)
     return PosLoginResponse(user_id=user.id, full_name=user.full_name)
+
+
+@router.post("/manager-override", response_model=ManagerOverrideResponse)
+async def manager_override(
+    req: ManagerOverrideRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    actor: User = Depends(get_current_user),
+):
+    """Verify a manager/owner password to authorize a privileged in-store action.
+
+    Does NOT issue a session — the caller (a logged-in cashier) stays logged in.
+    The audit trail records both the actor (cashier) and the authorizer (manager).
+    """
+    ip = _client_ip(request)
+    key = f"override:{ip}"
+    if await is_locked(db, key=key, window_seconds=15 * 60, max_failures=5):
+        raise HTTPException(status_code=429, detail="too many attempts, try later")
+
+    result = await db.execute(select(User).where(User.email == req.email, User.active.is_(True)))
+    authorizer = result.scalar_one_or_none()
+    invalid = (
+        authorizer is None
+        or authorizer.role not in ("owner", "manager")
+        or not authorizer.password_hash
+        or not verify_password(req.password, authorizer.password_hash)
+    )
+    if invalid:
+        await record_attempt(db, key=key, succeeded=False)
+        await log_event(
+            db,
+            event_type="auth.override.failed",
+            actor_user_id=actor.id,
+            ip=ip,
+            payload={"email": req.email, "action": req.action},
+        )
+        await db.commit()
+        raise HTTPException(status_code=401, detail="invalid credentials")
+
+    await record_attempt(db, key=key, succeeded=True)
+    await log_event(
+        db,
+        event_type="auth.override.granted",
+        actor_user_id=actor.id,
+        ip=ip,
+        payload={
+            "authorizer_user_id": authorizer.id,
+            "authorizer_email": authorizer.email,
+            "action": req.action,
+            "context": req.context,
+        },
+    )
+    await db.commit()
+    return ManagerOverrideResponse(
+        user_id=authorizer.id,
+        full_name=authorizer.full_name,
+        role=authorizer.role,
+    )
 
 
 @router.post("/logout")

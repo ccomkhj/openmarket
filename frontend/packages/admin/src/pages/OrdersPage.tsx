@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
 import { api, useDebounce, exportCsv, Button, SkeletonRows, ConfirmDialog, useToast, colors, baseStyles, spacing, radius } from "@openmarket/shared";
+import { useQueryParam } from "../hooks/useQueryParam";
 import type { Order, OrderListItem } from "@openmarket/shared";
 
 export function OrdersPage() {
   const [orders, setOrders] = useState<OrderListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<"unfulfilled" | "fulfilled">("unfulfilled");
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useQueryParam("q");
   const [sourceFilter, setSourceFilter] = useState<string>("");
   const debouncedSearch = useDebounce(search, 300);
   const [expandedOrder, setExpandedOrder] = useState<Order | null>(null);

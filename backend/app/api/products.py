@@ -1,3 +1,4 @@
+import asyncio
 import csv
 import io
 import uuid
@@ -13,12 +14,25 @@ from app.config import settings
 
 from app.api.deps import get_db, require_manager_or_above, require_owner
 from app.models.product import Product, ProductVariant, ProductImage
-from app.models.inventory import InventoryItem
+from app.models.inventory import InventoryItem, InventoryLevel, Location
 from app.schemas.product import (
     ProductCreate, ProductUpdate, ProductOut, ProductListOut,
     VariantCreate, VariantUpdate, VariantOut,
     ProductListWithPriceOut, VariantLookupOut, ProductImageOut,
 )
+
+
+_DEFAULT_LOCATION_ID: int | None = None
+
+
+async def _default_location_id(db: AsyncSession) -> int | None:
+    """Process-cached `MIN(Location.id)`. The default location is fixed at seed
+    time and never moves; one query per process is enough."""
+    global _DEFAULT_LOCATION_ID
+    if _DEFAULT_LOCATION_ID is not None:
+        return _DEFAULT_LOCATION_ID
+    _DEFAULT_LOCATION_ID = await db.scalar(select(sqlfunc.min(Location.id)))
+    return _DEFAULT_LOCATION_ID
 
 router = APIRouter(
     prefix="/api",
@@ -151,15 +165,46 @@ async def list_products(
     result = await db.execute(query)
     rows = result.all()
 
-    # Load first image for each product
     product_ids = [r.id for r in rows]
     image_map: dict[int, str | None] = {}
+    stock_map: dict[int, int] = {}
+
     if product_ids:
-        img_result = await db.execute(
+        default_loc = await _default_location_id(db)
+
+        # First image per product.
+        image_q = db.execute(
             select(ProductImage.product_id, ProductImage.src)
             .where(ProductImage.product_id.in_(product_ids))
             .order_by(ProductImage.product_id, ProductImage.position)
         )
+
+        # Total available stock per product at the default location.
+        # LEFT-OUTER joins so products with variants but no inventory rows still
+        # appear (as 0) — "no inventory" and "tracked but empty" both render as
+        # Sold out, which is the right UX.
+        if default_loc is not None:
+            stock_q = db.execute(
+                select(
+                    ProductVariant.product_id,
+                    sqlfunc.coalesce(sqlfunc.sum(InventoryLevel.available), 0).label("total"),
+                )
+                .select_from(ProductVariant)
+                .outerjoin(InventoryItem, InventoryItem.variant_id == ProductVariant.id)
+                .outerjoin(
+                    InventoryLevel,
+                    (InventoryLevel.inventory_item_id == InventoryItem.id)
+                    & (InventoryLevel.location_id == default_loc),
+                )
+                .where(ProductVariant.product_id.in_(product_ids))
+                .group_by(ProductVariant.product_id)
+            )
+            img_result, stock_result = await asyncio.gather(image_q, stock_q)
+            for row in stock_result.all():
+                stock_map[row.product_id] = int(row.total or 0)
+        else:
+            img_result = await image_q
+
         for img_row in img_result.all():
             if img_row.product_id not in image_map:
                 image_map[img_row.product_id] = img_row.src
@@ -170,6 +215,7 @@ async def list_products(
             product_type=r.product_type, status=r.status,
             tags=r.tags, min_price=r.min_price,
             image_url=image_map.get(r.id),
+            total_stock=stock_map.get(r.id),
         )
         for r in rows
     ]
@@ -208,13 +254,70 @@ async def get_product(product_id: int, db: AsyncSession = Depends(get_db)):
     query = (
         select(Product)
         .where(Product.id == product_id)
-        .options(selectinload(Product.variants), selectinload(Product.images))
+        .options(
+            selectinload(Product.variants).selectinload(ProductVariant.inventory_item),
+            selectinload(Product.images),
+        )
     )
     result = await db.execute(query)
     product = result.scalar_one_or_none()
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
-    return product
+
+    # Per-variant available stock at the default location. LEFT join so a variant
+    # whose InventoryItem exists but has no level row still appears (as 0), and
+    # variants with no inventory_item at all default to 0 below.
+    default_loc = await _default_location_id(db)
+    stock_by_variant: dict[int, dict[str, int]] = {}
+    if default_loc is not None and product.variants:
+        item_ids = [v.inventory_item.id for v in product.variants if v.inventory_item]
+        if item_ids:
+            level_result = await db.execute(
+                select(
+                    InventoryItem.variant_id,
+                    InventoryLevel.available,
+                    InventoryLevel.low_stock_threshold,
+                )
+                .select_from(InventoryItem)
+                .outerjoin(
+                    InventoryLevel,
+                    (InventoryLevel.inventory_item_id == InventoryItem.id)
+                    & (InventoryLevel.location_id == default_loc),
+                )
+                .where(InventoryItem.id.in_(item_ids))
+            )
+            for row in level_result.all():
+                stock_by_variant[row.variant_id] = {
+                    "available": int(row.available or 0),
+                    "low_stock_threshold": int(row.low_stock_threshold or 5),
+                }
+
+    return ProductOut(
+        id=product.id,
+        title=product.title,
+        handle=product.handle,
+        description=product.description,
+        product_type=product.product_type,
+        status=product.status,
+        tags=product.tags,
+        images=[ProductImageOut.model_validate(img) for img in product.images],
+        variants=[
+            VariantOut(
+                id=v.id, product_id=v.product_id, title=v.title,
+                sku=v.sku, barcode=v.barcode, price=v.price,
+                compare_at_price=v.compare_at_price, position=v.position,
+                pricing_type=v.pricing_type, weight_unit=v.weight_unit,
+                min_weight_kg=v.min_weight_kg, max_weight_kg=v.max_weight_kg,
+                tare_kg=v.tare_kg, barcode_format=v.barcode_format,
+                inventory_item_id=v.inventory_item.id if v.inventory_item else None,
+                # Default to 0 (sold out) when there's no inventory data, so the UI
+                # can rely on a number rather than null.
+                available=stock_by_variant.get(v.id, {}).get("available", 0 if v.inventory_item else None),
+                low_stock_threshold=stock_by_variant.get(v.id, {}).get("low_stock_threshold", 5),
+            )
+            for v in product.variants
+        ],
+    )
 
 
 @router.put("/products/{product_id}", response_model=ProductOut)

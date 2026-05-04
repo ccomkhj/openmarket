@@ -1,4 +1,4 @@
-import type { CashPaymentResult, CardPaymentResult, CloseSummary, HealthStatus, KassenbuchEntry, ZReport, VariantDetail, PosTransactionListItem } from "./types";
+import type { CashPaymentResult, CardPaymentResult, CloseSummary, HealthStatus, KassenbuchEntry, ZReport, VariantDetail, PosTransactionListItem, ParkedSale, ParkedSaleItem } from "./types";
 
 const API_BASE = "/api";
 
@@ -12,6 +12,8 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     const error = await response.json().catch(() => ({ detail: "Request failed" }));
     throw new Error(error.detail || `HTTP ${response.status}`);
   }
+  // 204 No Content carries no JSON body. Callers asking for `void` work fine here.
+  if (response.status === 204) return undefined as T;
   return response.json();
 }
 
@@ -163,6 +165,11 @@ export const api = {
       request<CashPaymentResult>("/payment/cash", { method: "POST", body: JSON.stringify(data) }),
     card: (data: { client_id: string; order_id: number }) =>
       request<CardPaymentResult>("/payment/card", { method: "POST", body: JSON.stringify(data) }),
+    split: (data: { client_id: string; order_id: number; cash_amount: string; card_amount: string }) =>
+      request<{ transaction: import("./types").PosTransactionRef; receipt_status: "printed" | "buffered" | "failed" }>(
+        "/payment/split",
+        { method: "POST", body: JSON.stringify(data) },
+      ),
   },
   storeInfo: () =>
     request<{
@@ -211,6 +218,13 @@ export const api = {
       request<{ id: string; voids_transaction_id: string; tse_signature: string; receipt_number: number }>(
         `/pos-transactions/${txId}/void`, { method: "POST" }
       ),
+  },
+  parkedSales: {
+    list: () => request<ParkedSale[]>("/parked-sales"),
+    create: (data: { items: ParkedSaleItem[]; customer_id?: number | null; note?: string }) =>
+      request<ParkedSale>("/parked-sales", { method: "POST", body: JSON.stringify(data) }),
+    get: (id: number) => request<ParkedSale>(`/parked-sales/${id}`),
+    cancel: (id: number) => request<void>(`/parked-sales/${id}`, { method: "DELETE" }),
   },
   health: {
     db: () => request<HealthStatus>("/health"),

@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import { api, useDebounce, Button, Spinner, colors, baseStyles, spacing, radius } from "@openmarket/shared";
+import { useQueryParam } from "../hooks/useQueryParam";
 import type { Customer, OrderListItem } from "@openmarket/shared";
 
 export function CustomersPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useQueryParam("q");
   const debouncedSearch = useDebounce(search, 300);
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [expandedOrders, setExpandedOrders] = useState<OrderListItem[]>([]);

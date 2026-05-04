@@ -72,6 +72,34 @@ export async function mfaEnroll() {
   return body as { secret: string; uri: string };
 }
 
+export type ManagerOverrideResult = {
+  user_id: number;
+  full_name: string;
+  role: "owner" | "manager";
+};
+
+export async function managerOverride(args: {
+  email: string;
+  password: string;
+  action: string;
+  context?: Record<string, unknown>;
+}): Promise<ManagerOverrideResult> {
+  const r = await fetch(`${base}/manager-override`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      email: args.email,
+      password: args.password,
+      action: args.action,
+      context: args.context ?? {},
+    }),
+  });
+  const body = await r.json();
+  if (!r.ok) throw new Error(body.detail ?? "override failed");
+  return body as ManagerOverrideResult;
+}
+
 export async function mfaVerify(code: string) {
   const r = await fetch(`${base}/mfa/verify`, {
     method: "POST",

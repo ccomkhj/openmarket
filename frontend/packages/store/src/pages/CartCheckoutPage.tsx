@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { api, Button, ConfirmDialog, colors, baseStyles, spacing, radius } from "@openmarket/shared";
 import type { ShippingMethod, TaxRate } from "@openmarket/shared";
 import { useCart } from "../store/cartStore";
+import { usePageMeta } from "../hooks/usePageMeta";
 
 function validatePhone(phone: string): string | null {
   const digits = phone.replace(/\D/g, "");
@@ -18,6 +19,7 @@ function validateZip(zip: string): string | null {
 export function CartCheckoutPage() {
   const { items, updateQuantity, removeItem, clearCart, total } = useCart();
   const navigate = useNavigate();
+  usePageMeta("Cart", "Review your cart and check out.");
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
@@ -132,6 +134,7 @@ export function CartCheckoutPage() {
             {items.map((item, i) => (
               <div key={item.variant.id} style={{
                 display: "flex", justifyContent: "space-between", alignItems: "center",
+                gap: spacing.sm, flexWrap: "wrap",
                 padding: "12px 0", borderBottom: i < items.length - 1 ? `1px solid ${colors.border}` : undefined,
               }}>
                 <div style={{ display: "flex", alignItems: "center", gap: spacing.sm }}>

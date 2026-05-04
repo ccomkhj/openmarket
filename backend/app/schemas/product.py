@@ -56,6 +56,9 @@ class VariantOut(BaseModel):
     max_weight_kg: Decimal | None = None
     tare_kg: Decimal | None = None
     barcode_format: str = "standard"
+    inventory_item_id: int | None = None
+    available: int | None = None
+    low_stock_threshold: int | None = None
 
     model_config = {"from_attributes": True}
 
@@ -113,6 +116,7 @@ class ProductListWithPriceOut(BaseModel):
     tags: list[str]
     min_price: Decimal | None = None
     image_url: str | None = None
+    total_stock: int | None = None
 
     model_config = {"from_attributes": True}
 

@@ -13,6 +13,9 @@ export interface ProductVariant {
   max_weight_kg?: string | null;
   tare_kg?: string | null;
   barcode_format?: string;
+  inventory_item_id?: number | null;
+  available?: number | null;
+  low_stock_threshold?: number | null;
 }
 
 export interface ProductImage {
@@ -139,6 +142,7 @@ export interface ProductListWithPrice {
   tags: string[];
   min_price: string | null;
   image_url: string | null;
+  total_stock?: number | null;
 }
 
 export interface VariantLookup {
@@ -276,4 +280,24 @@ export interface PosTransactionListItem {
   payment_breakdown: Record<string, string>;
   tse_pending: boolean;
   voids_transaction_id: string | null;
+}
+
+export interface ParkedSaleItem {
+  variant_id: number;
+  product_title: string;
+  variant_title: string;
+  price: string;
+  quantity: number;
+  quantity_kg?: string | null;
+}
+
+export interface ParkedSale {
+  id: number;
+  cashier_user_id: number;
+  customer_id: number | null;
+  customer_name: string | null;
+  items: ParkedSaleItem[];
+  note: string;
+  created_at: string;
+  item_count: number;
 }

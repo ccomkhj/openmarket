@@ -12,6 +12,7 @@ import { DsfinvkExport } from "./pages/DsfinvkExport";
 import { RecentSales } from "./pages/RecentSales";
 import { api, baseStyles, colors, ToastProvider, type Me } from "@openmarket/shared";
 import { RequireAuth } from "./components/RequireAuth";
+import { CommandPalette, COMMAND_PALETTE_HINT } from "./components/CommandPalette";
 
 export function App() {
   return (
@@ -55,10 +56,16 @@ function AdminShell({ me }: { me: Me }) {
 
   return (
   <ToastProvider>
+    <CommandPalette />
     <div style={baseStyles.page}>
       <nav style={baseStyles.nav}>
         <span style={{ ...baseStyles.navBrand, cursor: "default" }}>OpenMarket Admin</span>
         <div style={{ flex: 1 }} />
+        <span style={{
+          fontSize: 12, color: colors.textSecondary,
+          border: `1px solid ${colors.border}`, borderRadius: 4,
+          padding: "2px 8px", marginRight: 8,
+        }} title="Open command palette">{COMMAND_PALETTE_HINT} Search</span>
         <Link to="/analytics" style={linkStyle("/analytics")}>Analytics</Link>
         <Link to="/products" style={linkStyle("/products")}>Products & Inventory</Link>
         <Link to="/orders" style={linkStyle("/orders")}>

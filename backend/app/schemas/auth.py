@@ -49,6 +49,19 @@ class BootstrapStatus(BaseModel):
     setup_required: bool
 
 
+class ManagerOverrideRequest(BaseModel):
+    email: EmailStr
+    password: str = Field(min_length=1)
+    action: str = Field(min_length=1, max_length=64)
+    context: dict = Field(default_factory=dict)
+
+
+class ManagerOverrideResponse(BaseModel):
+    user_id: int
+    full_name: str
+    role: str
+
+
 class UserCreate(BaseModel):
     email: str | None = None
     password: str | None = None

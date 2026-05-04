@@ -64,6 +64,13 @@ class CardRequest(BaseModel):
     order_id: int
 
 
+class SplitRequest(BaseModel):
+    client_id: uuid.UUID
+    order_id: int
+    cash_amount: Decimal
+    card_amount: Decimal
+
+
 def _pos_tx_response(tx) -> dict:
     return {
         "id": str(tx.id),
@@ -108,6 +115,31 @@ async def pay_card(
             client_id=body.client_id, order_id=body.order_id,
             cashier_user_id=user.id,
         )
+    except CardDeclinedError as e:
+        raise HTTPException(402, f"declined: {e}")
+    except TerminalUnavailableError as e:
+        raise HTTPException(503, f"terminal unavailable: {e}")
+    return {
+        "transaction": _pos_tx_response(result.transaction),
+        "receipt_status": result.receipt_status,
+    }
+
+
+@router.post("/payment/split", dependencies=[Depends(require_any_staff)])
+async def pay_split(
+    body: SplitRequest,
+    db: AsyncSession = Depends(get_db),
+    user = Depends(get_current_user),
+):
+    svc = _service(db)
+    try:
+        result = await svc.pay_split(
+            client_id=body.client_id, order_id=body.order_id,
+            cashier_user_id=user.id,
+            cash_amount=body.cash_amount, card_amount=body.card_amount,
+        )
+    except ValueError as e:
+        raise HTTPException(400, str(e))
     except CardDeclinedError as e:
         raise HTTPException(402, f"declined: {e}")
     except TerminalUnavailableError as e:

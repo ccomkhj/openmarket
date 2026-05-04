@@ -8,6 +8,7 @@ class Settings(BaseSettings):
 
     session_secret_key: str
     session_cookie_name: str = "openmarket_session"
+    session_cookie_secure: bool = True  # set False for local http://localhost dev only
     admin_session_idle_minutes: int = 480
     admin_session_absolute_max_hours: int = 24
 

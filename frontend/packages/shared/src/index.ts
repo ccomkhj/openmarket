@@ -10,7 +10,9 @@ export { colors, spacing, radius, font, shadow, navHeight, baseStyles } from "./
 export type * from "./types";
 export { ToastProvider, useToast } from "./components/Toast";
 export { ConfirmDialog } from "./components/ConfirmDialog";
+export { ModalShell, modalLabelStyle } from "./components/ModalShell";
 export { useDebounce } from "./useDebounce";
+export { useEscapeKey } from "./useEscapeKey";
 export { exportCsv } from "./exportCsv";
-export { fetchMe, login, logout, setup, posLogin, fetchBootstrapStatus, mfaEnroll, mfaVerify } from "./auth";
-export type { Me, BootstrapStatus } from "./auth";
+export { fetchMe, login, logout, setup, posLogin, fetchBootstrapStatus, mfaEnroll, mfaVerify, managerOverride } from "./auth";
+export type { Me, BootstrapStatus, ManagerOverrideResult } from "./auth";

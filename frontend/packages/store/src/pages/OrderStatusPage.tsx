@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { api, Button, Spinner, colors, baseStyles, spacing, radius } from "@openmarket/shared";
 import type { Order } from "@openmarket/shared";
+import { usePageMeta } from "../hooks/usePageMeta";
 
 export function OrderStatusPage() {
+  usePageMeta("Track Order", "Look up the status of your order.");
   const [orderNumber, setOrderNumber] = useState("");
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(false);

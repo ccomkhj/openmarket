@@ -10,6 +10,7 @@ from app.models.pos_transaction import PosTransaction, PosTransactionLine, TseSi
 from app.models.receipt_job import ReceiptPrintJob  # noqa: F401
 from app.models.kassenbuch import KassenbuchEntry  # noqa: F401
 from app.models.card_auth import CardAuth  # noqa: F401
+from app.models.parked_sale import ParkedSale  # noqa: F401
 
 __all__ = [
     "Product", "ProductVariant", "ProductImage",
@@ -24,4 +25,5 @@ __all__ = [
     "ReceiptPrintJob",
     "KassenbuchEntry",
     "CardAuth",
+    "ParkedSale",
 ]
